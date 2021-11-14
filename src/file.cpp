@@ -88,15 +88,20 @@ void file::compute_dependencies(){
 }
 
 bool file::need_rebuild() const{
-    if(!fs::exists(object_path) || fs::last_write_time(object_path) < last_write){
+    if(!fs::exists(object_path)){
         return true;
     }
 
+    auto obj_last_write = fs::last_write_time(object_path);
+    if(last_write > obj_last_write){
+        return true;
+    }
+/*
     for(auto& d: dependencies){
         if(fs::last_write_time(d) > last_write){
             return true;
         }
-    }
+    }*/
     return false;
 }
 

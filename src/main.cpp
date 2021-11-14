@@ -85,7 +85,10 @@ int main(int argc, char** argv){
             if(fs::is_directory(final_path)){
                 final_path /= binary_path.filename();
             }
-            fs::copy(binary_path, final_path, fs::copy_options::update_existing);
+            if(fs::exists(final_path)){
+                fs::remove(final_path);
+            }
+            fs::copy(binary_path, final_path);
         }
     }
 
