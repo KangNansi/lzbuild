@@ -96,20 +96,41 @@ const string get_value(const map<string, string>& map, const string& key, const 
     }
 }
 
+void get_values(const map<string, string>& map, const string& key, vector<string> &target){
+    auto it = map.find(key);
+    if(it != map.end()){
+        auto& val = (*it).second;
+        int start = 0;
+        for(int i = 0; i <= val.length(); i++){
+            if(i == val.length() || val[i] == ';'){
+                target.push_back(val.substr(start, i - start));
+                start = i+1;
+            }
+        }
+    }
+}
+
 void read_config(config& config, std::filesystem::path path){
-    ifstream file(path);
+    map<string, string> value_map;
+    if(fs::exists(path)){
+        ifstream file(path);
+        try{
+            parse(file, value_map);
+        }
+        catch(exception& exception){
+            cerr << exception.what() << endl;
+        }
+        catch(const char* exception){
+            cerr << exception << endl;
+        }
+        file.close();
+    }
 
-    try{
-        map<string, string> value_map;
-        parse(file, value_map);
-        config.export_path = get_value(value_map, "export_path", ".");
-    }
-    catch(exception& exception){
-        cerr << exception.what() << endl;
-    }
-    catch(const char* exception){
-        cerr << exception << endl;
-    }
-
-    file.close();
+    config.export_path = get_value(value_map, "export_path", "");
+    config.name = get_value(value_map, "name", "result");
+    config.cflags = get_value(value_map, "cflags", "");
+    get_values(value_map, "include", config.include_folder);
+    get_values(value_map, "libraries", config.libraries);
+    get_values(value_map, "libpaths", config.library_paths);
+    config.link_etc = get_value(value_map, "link_etc", "");
 }

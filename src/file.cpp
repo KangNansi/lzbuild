@@ -28,7 +28,6 @@ file::file(fs::path path){
             }
         }
         object_path.replace_extension(".o");
-        cout << object_path << endl;
     }
 
     last_write = fs::last_write_time(path);
@@ -81,27 +80,47 @@ void file::compute_dependencies(){
 
             if(fs::exists(rel)){
                 dependencies.push_back(rel);
+                continue;
+            }
+
+            fs::path abs = fs::current_path() / "src" / fs::path(include);
+            if(fs::exists(abs)){
+                dependencies.push_back(abs);
             }
         }
     }
     strm.close();
 }
 
-bool file::need_rebuild() const{
+bool file::need_rebuild(const std::vector<file>& files) const{
     if(!fs::exists(object_path)){
         return true;
     }
 
+    std::set<std::filesystem::path> checked;
     auto obj_last_write = fs::last_write_time(object_path);
-    if(last_write > obj_last_write){
+    return rebuild_check(obj_last_write, files, checked);
+}
+
+bool file::rebuild_check(std::filesystem::file_time_type last_write, const std::vector<file>& files, std::set<fs::path>& checked) const{
+
+    if(fs::last_write_time(path) > last_write){
         return true;
     }
-/*
+
+    checked.insert(path);
+
     for(auto& d: dependencies){
-        if(fs::last_write_time(d) > last_write){
-            return true;
+        for(auto& f : files){
+            if(auto it{checked.find(f.path)}; it != checked.end()){
+                continue;
+            }
+            if(fs::equivalent(f.path, d) && f.rebuild_check(last_write, files, checked)){
+                return true;
+            }
         }
-    }*/
+    }
+
     return false;
 }
 
@@ -129,7 +148,6 @@ std::ostream& operator<<(std::ostream &strm, const file &file){
   for(auto& d: file.dependencies){
       strm << '\t' << "path: " << d << '\n';
   }
-  strm << "need rebuild: " << file.need_rebuild() << '\n';
   strm.flush();
   return strm;
 }

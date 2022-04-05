@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <vector> 
+#include <set>
 
 namespace fs = std::filesystem;
 
@@ -23,7 +24,8 @@ class file{
     public:
     file(fs::path path);
 
-    bool need_rebuild() const;
+    bool need_rebuild(const std::vector<file>& files) const;
+    bool rebuild_check(std::filesystem::file_time_type last_write, const std::vector<file>& files, std::set<fs::path>& checked) const;
     FILE_TYPE get_type() const { return type; }
     fs::path get_file_path() const { return path; }
     fs::path get_object_path() const { return object_path; }
