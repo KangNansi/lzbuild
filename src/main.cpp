@@ -10,7 +10,16 @@
 namespace fs = std::filesystem;
 using namespace std;
 
-Process::Result build(const file& file, const config& cfg, stringstream& output){
+void initialize_compiler_cmd(std::stringstream& stream, const ArgReader& args){
+    stream << "g++ ";
+    if(args.has("--debug")){
+        stream << "-g ";
+    }
+    stream << "-fdiagnostics-color=always ";
+    stream << "-std=c++20 ";
+}
+
+Process::Result build(const file& file, const ArgReader& args, const config& cfg, stringstream& output){
     auto object_path = file.get_object_path();
     auto dir_path = object_path.remove_filename();
     fs::path directory;
@@ -22,7 +31,10 @@ Process::Result build(const file& file, const config& cfg, stringstream& output)
     }
 
     stringstream ss;
-    ss << "g++ -g -fdiagnostics-color=always -std=c++20 -o " << file.get_object_path() << " -c " << file.get_file_path();
+
+    initialize_compiler_cmd(ss, args);
+    
+    ss << "-o " << file.get_object_path() << " -c " << file.get_file_path();
  
     for(auto& include: cfg.include_folder){
         ss << " -I" << include;
@@ -49,10 +61,12 @@ Process::Result build(const file& file, const config& cfg, stringstream& output)
     }
 }
 
-Process::Result link(fs::path binary_path, const std::vector<file>& files, const config& cfg, stringstream& output){
+Process::Result link(fs::path binary_path, const std::vector<file>& files, const ArgReader& args, const config& cfg, stringstream& output){
     stringstream cmd;
+
+    initialize_compiler_cmd(cmd, args);
     
-    cmd << "g++ -g -std=c++20 -o " << binary_path;
+    cmd << "-o " << binary_path;
     for(auto& f: files){
         if(f.get_type() == FILE_TYPE::SOURCE){
             cmd << " " << f.get_object_path();
@@ -121,11 +135,12 @@ int main(int argc, char** argv){
     fs::file_time_type last_write = chrono::file_clock::now();
     for(auto& f: files){
         if(f.get_type() == FILE_TYPE::SOURCE){
-            cout << term::cyan << "Rebuilding " << f.get_file_path() << ": " << term::reset << std::flush;
-            if(full_rebuild || f.need_rebuild(files)){
+            bool should_rebuild = full_rebuild || f.need_rebuild(files);
+            if(should_rebuild){
+                cout << term::cyan << "Rebuilding " << f.get_file_path() << ": " << term::reset << std::flush;
                 require_rebuild = true;
                 stringstream build_output;
-                if(build(f, cfg, build_output) == Process::Result::Failed){
+                if(build(f, args, cfg, build_output) == Process::Result::Failed){
                     build_failed = true;
                     cout << term::red << "Failed " << term::reset << endl;
                     log_output(build_output);
@@ -135,12 +150,15 @@ int main(int argc, char** argv){
                 }
             }
             else{
-                cout << "Already done" << endl;
+                //cout << "Already done" << endl;
             }
             auto file_last_write = fs::last_write_time(f.get_object_path());
             if(file_last_write < last_write){
                 last_write = file_last_write;
             }
+        }
+        if(build_failed){
+            break;
         }
     }
     if(build_failed){
@@ -155,7 +173,7 @@ int main(int argc, char** argv){
     if(require_rebuild){
         cout << "Creating executable..." << endl;
         stringstream link_output;
-        if(link(binary_path, files, cfg, link_output) == Process::Result::Failed){
+        if(link(binary_path, files, args, cfg, link_output) == Process::Result::Failed){
             cerr << term::red << "Error creating executable" << term::reset << endl;
             log_output(link_output);
             return 0;
@@ -193,7 +211,15 @@ int main(int argc, char** argv){
     if(run_after_build){
         cout << "Running executable" << endl;
 
-        Process::Run(binary_path.string().c_str());
+        try{
+            Process::Run(binary_path.string().c_str());
+        }
+        catch(const std::string& error){
+            cerr << term::red << error << term::reset << endl;
+        }
+        catch(const char* error){
+            cerr << term::red << error << term::reset << endl;
+        }
     }
 
     return 0;

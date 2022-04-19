@@ -13,7 +13,7 @@ class ArgReader{
         }
     }
 
-    bool has(std::string arg){
+    bool has(std::string arg) const{
         auto it = arg_map.find(arg);
         return it != arg_map.end();
     }

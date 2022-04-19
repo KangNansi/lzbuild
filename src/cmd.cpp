@@ -26,9 +26,10 @@ Process::Result Process::Run(const char* cmd) {
     HANDLE std_in = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE std_err = GetStdHandle(STD_ERROR_HANDLE);
     PROCESS_INFORMATION info = create(cmd, std_in, std_out, std_err);
-    WaitForSingleObject(info.hProcess, 100000);
+    WaitForSingleObject(info.hProcess, INFINITE);
+    auto result = get_result(info);
     release(info);
-    return get_result(info);
+    return result;
 }
 
 Process::Result Process::Run(const char* cmd, std::stringstream& output) {
@@ -44,7 +45,7 @@ Process::Result Process::Run(const char* cmd, std::stringstream& output) {
         output.write(rd_buffer, read_chars);
     }
     CloseHandle(pipe.read);
-    WaitForSingleObject(info.hProcess, 100000);
+    WaitForSingleObject(info.hProcess, INFINITE);
     auto result = get_result(info);
     release(info);
     return result;
