@@ -22,7 +22,7 @@ class file{
     void compute_dependencies();
 
     public:
-    file(fs::path path);
+    file(fs::path path, fs::path source_folder);
 
     bool need_rebuild(const std::vector<file>& files) const;
     bool rebuild_check(std::filesystem::file_time_type last_write, const std::vector<file>& files, std::set<fs::path>& checked) const;

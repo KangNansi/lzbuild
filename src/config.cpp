@@ -11,7 +11,7 @@ bool is_alpha(char c){
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-std::string read_value(string& text, int& cursor){
+std::string read_value(string& text, size_t& cursor){
     if(text[cursor] != '"'){
         throw "Parse error: '\"' expected";
     }
@@ -29,7 +29,7 @@ std::string read_value(string& text, int& cursor){
     return value;
 }
 
-std::string read_name(string& text, int& cursor){
+std::string read_name(string& text, size_t& cursor){
     if(text[cursor] == '"'){
         return read_value(text, cursor);
     }
@@ -41,9 +41,7 @@ std::string read_name(string& text, int& cursor){
     return text.substr(start, cursor - start);
 }
 
-
-
-void pass_space(string& text, int &cursor){
+void pass_space(string& text, size_t &cursor){
     while (cursor < text.length())
     {
         char c = text[cursor];
@@ -59,7 +57,7 @@ struct kvp{
     std::string value;
 };
 
-kvp read_kvp(string& text, int& cursor){
+kvp read_kvp(string& text, size_t& cursor){
     pass_space(text, cursor);
     kvp result;
     result.key = read_name(text, cursor);
@@ -78,7 +76,7 @@ void parse(ifstream& file, map<string, string>& result){
     ss << file.rdbuf();
     string text = ss.str();
 
-    int cursor = 0;
+    size_t cursor = 0;
     while (cursor < text.length())
     {
         auto kvp = read_kvp(text, cursor);
@@ -101,7 +99,7 @@ void get_values(const map<string, string>& map, const string& key, vector<string
     if(it != map.end()){
         auto& val = (*it).second;
         int start = 0;
-        for(int i = 0; i <= val.length(); i++){
+        for(size_t i = 0; i <= val.length(); i++){
             if(i == val.length() || val[i] == ';'){
                 target.push_back(val.substr(start, i - start));
                 start = i+1;
@@ -132,5 +130,12 @@ void read_config(config& config, std::filesystem::path path){
     get_values(value_map, "include", config.include_folder);
     get_values(value_map, "libraries", config.libraries);
     get_values(value_map, "libpaths", config.library_paths);
+    get_values(value_map, "sources", config.source_folders);
+    if(config.source_folders.size() == 0){
+        config.source_folders.push_back("src");
+    }
+    if(get_value(value_map, "is_library", "false") == "true"){
+        config.is_library = true;
+    }
     config.link_etc = get_value(value_map, "link_etc", "");
 }

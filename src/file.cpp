@@ -8,7 +8,7 @@
 using namespace std;
 using uint = unsigned int;
 
-file::file(fs::path path){
+file::file(fs::path path, fs::path source_folder){
     this->path = path;
 
     if(path.extension() == ".cpp" || path.extension() == ".c"){
@@ -19,15 +19,9 @@ file::file(fs::path path){
     }
     
     if(type == FILE_TYPE::SOURCE){
-        for(auto it = path.begin(); it != path.end(); ++it){
-            if(*it == "src"){
-                object_path /= "obj";
-            }
-            else{
-                object_path /= *it;
-            }
-        }
-        object_path.replace_extension(".o");
+        fs::path relative_path = fs::relative(path, source_folder);
+        relative_path.replace_extension(".o");
+        object_path = "obj" / source_folder / relative_path;
     }
 
     last_write = fs::last_write_time(path);
@@ -36,8 +30,8 @@ file::file(fs::path path){
 
 bool file::read_include(const std::string& line, std::string& path){
     const std::string includeText = "#include";
-    int spos = line.find(includeText);
-    int line_length = line.length();
+    size_t spos = line.find(includeText);
+    size_t line_length = line.length();
     if(spos == string::npos){
         return false;
     }
