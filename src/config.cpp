@@ -3,72 +3,20 @@
 #include <sstream>
 #include <map>
 #include <iostream>
+#include "tokenizer/tokenizer.hpp"
+#include "tokenizer/extensions.hpp"
 
 using namespace std;
 namespace fs = std::filesystem;
-
-bool is_alpha(char c){
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-}
-
-std::string read_value(string& text, size_t& cursor){
-    if(text[cursor] != '"'){
-        throw "Parse error: '\"' expected";
-    }
-    cursor++;
-    int start = cursor;
-    while (cursor < text.length() && text[cursor] != '"')
-    {
-        cursor++;
-    }
-    if(text[cursor] != '"'){
-        throw "Parse error: '\"' expected";
-    }
-    std::string value = text.substr(start, cursor - start);
-    cursor++;
-    return value;
-}
-
-std::string read_name(string& text, size_t& cursor){
-    if(text[cursor] == '"'){
-        return read_value(text, cursor);
-    }
-    int start = cursor;
-    while (cursor < text.length() && is_alpha(text[cursor]))
-    {
-        cursor++;
-    }
-    return text.substr(start, cursor - start);
-}
-
-void pass_space(string& text, size_t &cursor){
-    while (cursor < text.length())
-    {
-        char c = text[cursor];
-        if(is_alpha(c) || c == '=' || c == '"'){
-            return;
-        }
-        cursor++;
-    }
-}
 
 struct kvp{
     std::string key;
     std::string value;
 };
 
-kvp read_kvp(string& text, size_t& cursor){
-    pass_space(text, cursor);
-    kvp result;
-    result.key = read_name(text, cursor);
-    pass_space(text, cursor);
-    if(text[cursor] != '='){
-        throw "Parse error: '=' expected.";
-    }
-    cursor++;
-    pass_space(text, cursor);
-    result.value = read_name(text, cursor);
-    return result;
+bool match(tokenizer::token token, short type, std::string value)
+{
+    return token.type == type && token.value == value;
 }
 
 void parse(ifstream& file, map<string, string>& result){
@@ -76,11 +24,37 @@ void parse(ifstream& file, map<string, string>& result){
     ss << file.rdbuf();
     string text = ss.str();
 
-    size_t cursor = 0;
-    while (cursor < text.length())
+    tokenizer::engine token_engine;
+    short keyword = token_engine.add<tokenizer::keyword_matcher>("if", "else");
+    short syntax = token_engine.add("{}=");
+    short name = token_engine.add("[@_][@_#]*");
+    short comment = token_engine.add<tokenizer::line_comment_matcher>("#");
+    short string_literal = token_engine.add<tokenizer::string_literal_matcher>();
+
+    auto tokens = token_engine.tokenize(text);
+
+    for (int i = 0; i < tokens.size(); i++)
     {
-        auto kvp = read_kvp(text, cursor);
-        result[kvp.key] = kvp.value;
+        int remaining = tokens.size() - i;
+        auto current = tokens[i];
+        short type = tokens[i].type;
+        if (remaining > 3 && match(current, keyword, "if"))
+        {
+            //TODO
+        }
+        else if (remaining > 3 && current.type == name && match(tokens[i+1], syntax, "=") && tokens[i+2].type == string_literal)
+        {
+            result[current.value] = tokens[i + 2].value;
+            i += 2;
+        }
+        else if (current.type == comment)
+        {
+            // nothing
+        }
+        else
+        {
+            throw "Unexpected token";
+        }
     }
 }
 
@@ -108,7 +82,8 @@ void get_values(const map<string, string>& map, const string& key, vector<string
     }
 }
 
-void read_config(config& config, std::filesystem::path path){
+void read_config(config& config, std::filesystem::path path)
+{
     map<string, string> value_map;
     if(fs::exists(path)){
         ifstream file(path);
@@ -126,16 +101,27 @@ void read_config(config& config, std::filesystem::path path){
 
     config.export_path = get_value(value_map, "export_path", "");
     config.name = get_value(value_map, "name", "result");
+    config.compiler = get_value(value_map, "compiler", "g++");
+    config.standard = get_value(value_map, "std", "c++20");
     config.cflags = get_value(value_map, "cflags", "");
     get_values(value_map, "include", config.include_folder);
     get_values(value_map, "libraries", config.libraries);
     get_values(value_map, "libpaths", config.library_paths);
     get_values(value_map, "sources", config.source_folders);
-    if(config.source_folders.size() == 0){
+    get_values(value_map, "exclude", config.exclude);
+    if (config.source_folders.size() == 0)
+    {
         config.source_folders.push_back("src");
     }
     if(get_value(value_map, "is_library", "false") == "true"){
         config.is_library = true;
     }
+#ifdef WIN32
+    auto bin_ext = ".exe";
+#else
+    auto bin_exe = "";
+#endif
+    
+    config.output_extension = get_value(value_map, "output_extension", config.is_library ? ".lib" : bin_exe);
     config.link_etc = get_value(value_map, "link_etc", "");
 }

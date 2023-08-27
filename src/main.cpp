@@ -1,6 +1,10 @@
 #include <iostream>
 #include <filesystem>
-#include "cmd.hpp"
+#ifdef WIN32
+ #include "windows/cmd.hpp"
+#else
+ #include "linux/cmd.hpp"
+#endif
 #include "file.hpp"
 #include <sstream>
 #include "config.hpp"
@@ -10,14 +14,14 @@
 namespace fs = std::filesystem;
 using namespace std;
 
-void initialize_compiler_cmd(std::stringstream& stream, const ArgReader& args){
-    stream << "g++ ";
+void initialize_compiler_cmd(std::stringstream& stream, const ArgReader& args, const config& cfg){
+    stream << cfg.compiler << " ";
     if(args.has("--debug")){
         stream << "-g ";
     }
     stream << "-Wall -Wextra ";
     stream << "-fdiagnostics-color=always ";
-    stream << "-std=c++20 ";
+    stream << "-std=" << cfg.standard << " ";
 }
 
 void initialize_compiler_library_cmd(std::stringstream& stream){
@@ -58,7 +62,7 @@ Process::Result build(const file& file, const ArgReader& args, const config& cfg
 
     stringstream ss;
 
-    initialize_compiler_cmd(ss, args);
+    initialize_compiler_cmd(ss, args, cfg);
     
     ss << "-o " << file.get_object_path() << " -c " << file.get_file_path();
  
@@ -70,15 +74,17 @@ Process::Result build(const file& file, const ArgReader& args, const config& cfg
         ss << " " << cfg.cflags;
     }
 
-    try{
+    try
+    {
+        std::cout << ss.str().c_str() << std::endl;
         return Process::Run(ss.str().c_str(), output);
     }
     catch(const char* error){
-        cerr << error << endl;
+        cerr << "Error building file " << file.get_file_path() << ": " << error << endl;
         return Process::Result::Failed;
     }
     catch(const std::string& error){
-        cerr << error << endl;
+        cerr << "Error building file " << file.get_file_path() << ": " << error << endl;
         return Process::Result::Failed;
     }
     catch(const std::exception& exception){
@@ -90,7 +96,7 @@ Process::Result build(const file& file, const ArgReader& args, const config& cfg
 Process::Result link(fs::path binary_path, const std::vector<file>& files, const ArgReader& args, const config& cfg, stringstream& output){
     stringstream cmd;
 
-    initialize_compiler_cmd(cmd, args);
+    initialize_compiler_cmd(cmd, args, cfg);
     
     cmd << "-o " << binary_path;
     for(auto& f: files){
@@ -111,6 +117,7 @@ Process::Result link(fs::path binary_path, const std::vector<file>& files, const
         cmd << " " << cfg.link_etc;
     }
 
+    std::cout << cmd.str() << std::endl;
     return Process::Run(cmd.str().c_str(), output);
 }
 
@@ -200,156 +207,168 @@ void export_header_files(fs::path destination, const std::vector<file>& files){
     }
 }
 
-int main(int argc, char** argv){
-    ArgReader args(argc, argv);
+int main(int argc, char** argv)
+{
+    try
+    {
+        ArgReader args(argc, argv);
 
-    bool verbose = args.has("-v");
-    bool dependencies_only = args.has("-d");
-    bool full_rebuild = args.has("-fr");
-    bool force_linking = args.has("-fl");
-    bool run_after_build = args.has("-r");
-    bool export_after_build = args.has("-e");
-    std::string arg_value; 
+        bool verbose = args.has("-v");
+        bool dependencies_only = args.has("-d");
+        bool full_rebuild = args.has("-fr");
+        bool force_linking = args.has("-fl");
+        bool run_after_build = args.has("-r");
+        bool export_after_build = args.has("-e");
+        std::string arg_value; 
 
-    config cfg;
-    if(args.get("-c", arg_value)){
-        if(!fs::exists(arg_value)){ 
-            std::cerr << "Could not find config " << arg_value << std::endl;
+        config cfg;
+        if(args.get("-c", arg_value)){
+            if(!fs::exists(arg_value)){ 
+                std::cerr << "Could not find config " << arg_value << std::endl;
+                return -1;
+            }
+            read_config(cfg, arg_value);
+        }
+        else{
+            read_config(cfg, "cppmaker.cfg");
+        }
+
+        std::vector<file> files;
+        fs::path obj_dir("obj");
+        if(!fs::exists(obj_dir)){
+            fs::create_directory(obj_dir);
+        }
+        fs::path bin_dir("bin");
+        if(!fs::exists(bin_dir)){
+            fs::create_directory(bin_dir);
+        }
+
+        for(auto& src_folder : cfg.source_folders){
+            for(auto& p: fs::recursive_directory_iterator(src_folder)){
+                if(fs::is_directory(p) || cfg.is_excluded(p)){
+                    continue;
+                }
+                
+                auto relative_path = fs::relative(p, src_folder);
+                files.push_back(file(p, src_folder));
+                if(verbose){
+                    cout << files.back() << endl;
+                }
+            }
+        }
+        if(dependencies_only){
+            return 0;
+        }
+
+        bool require_rebuild = false;
+        bool build_failed = false;
+        fs::file_time_type last_write = fs::file_time_type::min();
+        for(auto& f: files){
+            if(f.get_type() == FILE_TYPE::SOURCE){
+                bool should_rebuild = full_rebuild || f.need_rebuild(files);
+                if(should_rebuild){
+                    cout << term::cyan << "Rebuilding " << f.get_file_path() << ": " << term::reset << std::flush;
+                    require_rebuild = true;
+                    stringstream build_output;
+                    if(build(f, args, cfg, build_output) == Process::Result::Failed){
+                        build_failed = true;
+                        cout << term::red << "Failed " << term::reset << endl;
+                        log_output(build_output);
+                    }
+                    else
+                    {
+                        log_output(build_output);
+                        cout << term::green << "Rebuilt" << term::reset << endl;
+                    }
+                }
+                else{
+                    //cout << "Already done" << endl;
+                }
+                if (fs::exists(f.get_object_path()))
+                {
+                    auto file_last_write = fs::last_write_time(f.get_object_path());
+                    if(file_last_write > last_write){
+                        last_write = file_last_write;
+                    }
+                }
+            }
+            if(build_failed){
+                break;
+            }
+        }
+        
+        if (build_failed)
+        {
+            cout << term::red << "Build failed" << term::reset << endl;
             return -1;
         }
-        read_config(cfg, arg_value);
-    }
-    else{
-        read_config(cfg, "cppmaker.cfg");
-    }
-
-    std::vector<file> files;
-    fs::path obj_dir("obj");
-    if(!fs::exists(obj_dir)){
-        fs::create_directory(obj_dir);
-    }
-    fs::path bin_dir("bin");
-    if(!fs::exists(bin_dir)){
-        fs::create_directory(bin_dir);
-    }
-
-    for(auto& src_folder : cfg.source_folders){
-        for(auto& p: fs::recursive_directory_iterator(src_folder)){
-            if(fs::is_directory(p)){
-                continue;
-            }
-            auto relative_path = fs::relative(p, src_folder);
-            files.push_back(file(p, src_folder));
-            if(verbose){
-                cout << files.back() << endl;
-            }
+        
+        if (!create_output(cfg, files, args, last_write, require_rebuild || force_linking))
+        {
+            return -1;
         }
-    }
-    if(dependencies_only){
-        return 0;
-    }
 
-    bool require_rebuild = false;
-    bool build_failed = false;
-    fs::file_time_type last_write = fs::file_time_type::min();
-    for(auto& f: files){
-        if(f.get_type() == FILE_TYPE::SOURCE){
-            bool should_rebuild = full_rebuild || f.need_rebuild(files);
-            if(should_rebuild){
-                cout << term::cyan << "Rebuilding " << f.get_file_path() << ": " << term::reset << std::flush;
-                require_rebuild = true;
-                stringstream build_output;
-                if(build(f, args, cfg, build_output) == Process::Result::Failed){
-                    build_failed = true;
-                    cout << term::red << "Failed " << term::reset << endl;
-                    log_output(build_output);
+        auto binary_path = cfg.get_binary_path();
+        if(export_after_build && !cfg.export_path.empty()){
+            if(!fs::exists(cfg.export_path)){
+                cerr << term::red << "Could not find export path at: " << cfg.export_path << term::reset << endl;
+                return 1;
+            }
+
+            if(!cfg.is_library){
+                fs::path final_path(cfg.export_path);
+                
+                if(fs::is_directory(final_path)){
+                    final_path /= binary_path.filename();
                 }
-                else
-                {
-                    log_output(build_output);
-                    cout << term::green << "Rebuilt" << term::reset << endl;
+                cout << "Exporting executable to " << final_path << endl;
+                try{
+                    if(fs::exists(final_path)){
+                        fs::remove(final_path);
+                    }
+                    fs::copy(binary_path, final_path);
+                }
+                catch(const fs::filesystem_error& error){
+                    cerr << term::red << "Could not export executable: " << error.what() << term::reset << endl;
                 }
             }
             else{
-                //cout << "Already done" << endl;
-            }
-            auto file_last_write = fs::last_write_time(f.get_object_path());
-            if(file_last_write > last_write){
-                last_write = file_last_write;
+                auto lib_path = cfg.export_path / "libs" / binary_path.filename();
+                fs::create_directories(lib_path.parent_path());
+                cout << "Exporting library to " << lib_path << endl;
+                try{
+                    if(fs::exists(lib_path)){
+                        fs::remove(lib_path);
+                    }
+                    fs::copy(binary_path, lib_path);
+                    auto include_path = cfg.export_path / "includes" / cfg.name;
+                    fs::create_directories(include_path);
+                    export_header_files(include_path, files);
+                }
+                catch(const fs::filesystem_error& error){
+                    cerr << term::red << "Could not export executable: " << error.what() << term::reset << endl;
+                }
             }
         }
-        if(build_failed){
-            break;
+
+        if(run_after_build){
+            cout << "Running executable" << endl;
+
+            try{
+                Process::Run(binary_path.string().c_str());
+            }
+            catch(const std::string& error){
+                cerr << term::red << error << term::reset << endl;
+            }
+            catch(const char* error){
+                cerr << term::red << error << term::reset << endl;
+            }
         }
+    }
+    catch (std::string error)
+    {
+        std::cerr << error << std::endl;
     }
     
-    if (build_failed)
-    {
-        cout << term::red << "Build failed" << term::reset << endl;
-        return -1;
-    }
-    
-    if (!create_output(cfg, files, args, last_write, require_rebuild || force_linking))
-    {
-        return -1;
-    }
-
-    auto binary_path = cfg.get_binary_path();
-    if(export_after_build && !cfg.export_path.empty()){
-        if(!fs::exists(cfg.export_path)){
-            cerr << term::red << "Could not find export path at: " << cfg.export_path << term::reset << endl;
-            return 1;
-        }
-
-        if(!cfg.is_library){
-            fs::path final_path(cfg.export_path);
-            
-            if(fs::is_directory(final_path)){
-                final_path /= binary_path.filename();
-            }
-            cout << "Exporting executable to " << final_path << endl;
-            try{
-                if(fs::exists(final_path)){
-                    fs::remove(final_path);
-                }
-                fs::copy(binary_path, final_path);
-            }
-            catch(const fs::filesystem_error& error){
-                cerr << term::red << "Could not export executable: " << error.what() << term::reset << endl;
-            }
-        }
-        else{
-            auto lib_path = cfg.export_path / "libs" / binary_path.filename();
-            fs::create_directories(lib_path.parent_path());
-            cout << "Exporting library to " << lib_path << endl;
-            try{
-                if(fs::exists(lib_path)){
-                    fs::remove(lib_path);
-                }
-                fs::copy(binary_path, lib_path);
-                auto include_path = cfg.export_path / "includes" / cfg.name;
-                fs::create_directories(include_path);
-                export_header_files(include_path, files);
-            }
-            catch(const fs::filesystem_error& error){
-                cerr << term::red << "Could not export executable: " << error.what() << term::reset << endl;
-            }
-        }
-    }
-
-    if(run_after_build){
-        cout << "Running executable" << endl;
-
-        try{
-            Process::Run(binary_path.string().c_str());
-        }
-        catch(const std::string& error){
-            cerr << term::red << error << term::reset << endl;
-        }
-        catch(const char* error){
-            cerr << term::red << error << term::reset << endl;
-        }
-    }
-
     return 0;
 }
