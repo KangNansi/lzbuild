@@ -5,7 +5,8 @@
 #include <iostream>
 
 struct config{
-    std::filesystem::path export_path;
+    std::filesystem::path executable_export_path;
+    std::filesystem::path include_export_path;
     std::string name;
     std::string cflags;
     std::string compiler;

@@ -12,5 +12,3 @@
 <b>-e</b>: Export after build
 
 <b>-c [CONFIG_PATH]</b>: specify config
-
-<b>--debug</b>: compile with debug informations

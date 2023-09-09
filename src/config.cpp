@@ -3,8 +3,8 @@
 #include <sstream>
 #include <map>
 #include <iostream>
-#include "tokenizer/tokenizer.hpp"
-#include "tokenizer/extensions.hpp"
+#include <tokenizer/tokenizer.hpp>
+#include <tokenizer/extensions.hpp>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -122,7 +122,8 @@ void read_config(config& config, std::filesystem::path path)
         file.close();
     }
 
-    config.export_path = get_value(value_map, "export_path", "");
+    config.executable_export_path = get_value(value_map, "export_path", "");
+    config.include_export_path = get_value(value_map, "include_export_path", "");
     config.name = get_value(value_map, "name", "result");
     config.compiler = get_value(value_map, "compiler", "g++");
     config.standard = get_value(value_map, "std", "c++20");
@@ -141,10 +142,12 @@ void read_config(config& config, std::filesystem::path path)
     }
 #ifdef WIN32
     auto bin_ext = ".exe";
+    auto lib_ext = ".lib";
 #else
-    auto bin_exe = "";
+    auto bin_ext = "";
+    auto lib_ext = ".a";
 #endif
     
-    config.output_extension = get_value(value_map, "output_extension", config.is_library ? ".lib" : bin_exe);
+    config.output_extension = get_value(value_map, "output_extension", config.is_library ? lib_ext: bin_ext);
     config.link_etc = get_value(value_map, "link_etc", "");
 }
