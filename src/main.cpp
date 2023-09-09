@@ -10,6 +10,7 @@
 #include "config.hpp"
 #include "args.hpp"
 #include "term.hpp"
+#include "commands.hpp"
 
 namespace fs = std::filesystem;
 using namespace std;
@@ -218,7 +219,14 @@ int main(int argc, char** argv)
         bool force_linking = args.has("-fl");
         bool run_after_build = args.has("-r");
         bool export_after_build = args.has("-e");
-        std::string arg_value; 
+
+        if (args.has("init"))
+        {
+            init(fs::current_path());
+            return 0;
+        }
+        
+        std::string arg_value;
 
         config cfg;
         if(args.get("-c", arg_value)){
