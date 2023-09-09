@@ -76,7 +76,6 @@ Process::Result build(const file& file, const ArgReader& args, const config& cfg
 
     try
     {
-        std::cout << ss.str().c_str() << std::endl;
         return Process::Run(ss.str().c_str(), output);
     }
     catch(const char* error){
@@ -243,14 +242,23 @@ int main(int argc, char** argv)
             fs::create_directory(bin_dir);
         }
 
-        for(auto& src_folder : cfg.source_folders){
-            for(auto& p: fs::recursive_directory_iterator(src_folder)){
-                if(fs::is_directory(p) || cfg.is_excluded(p)){
+        for (auto& src_folder : cfg.source_folders)
+        {
+            auto it = fs::recursive_directory_iterator(src_folder);
+            for(decltype(it) end; it != end; ++it)
+            {
+                if (cfg.is_excluded(*it))
+                {
+                    it.disable_recursion_pending();
+                    continue;
+                }
+                if (fs::is_directory(*it))
+                {
                     continue;
                 }
                 
-                auto relative_path = fs::relative(p, src_folder);
-                files.push_back(file(p, src_folder));
+                auto relative_path = fs::relative(*it, src_folder);
+                files.push_back(file(*it, src_folder));
                 if(verbose){
                     cout << files.back() << endl;
                 }

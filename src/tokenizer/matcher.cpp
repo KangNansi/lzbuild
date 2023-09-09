@@ -1,4 +1,5 @@
 #include "matcher.hpp"
+#include <climits>
 
 namespace tokenizer {
 

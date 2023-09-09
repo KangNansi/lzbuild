@@ -19,6 +19,28 @@ bool match(tokenizer::token token, short type, std::string value)
     return token.type == type && token.value == value;
 }
 
+void assert(tokenizer::token token, short type, std::string value, std::string exception)
+{
+    if (!match(token, type, value))
+    {
+        throw exception;
+    }
+}
+
+short syntax;
+void syntax_assert(tokenizer::token token, std::string value)
+{
+    assert(token, syntax, value, "Syntax error: expected " + value + ", found " + token.value);
+}
+
+void type_assert(tokenizer::token token, short type)
+{
+    if (token.type != type)
+    {
+        throw "Syntax error: unexpected token " + token.str();
+    }
+}
+
 void parse(ifstream& file, map<string, string>& result){
     stringstream ss;
     ss << file.rdbuf();
@@ -26,25 +48,25 @@ void parse(ifstream& file, map<string, string>& result){
 
     tokenizer::engine token_engine;
     short keyword = token_engine.add<tokenizer::keyword_matcher>("if", "else");
-    short syntax = token_engine.add("{}=");
+    syntax = token_engine.add("[{}=]");
     short name = token_engine.add("[@_][@_#]*");
     short comment = token_engine.add<tokenizer::line_comment_matcher>("#");
     short string_literal = token_engine.add<tokenizer::string_literal_matcher>();
 
     auto tokens = token_engine.tokenize(text);
 
-    for (int i = 0; i < tokens.size(); i++)
+    for (size_t i = 0; i < tokens.size(); i++)
     {
-        int remaining = tokens.size() - i;
         auto current = tokens[i];
-        short type = tokens[i].type;
-        if (remaining > 3 && match(current, keyword, "if"))
+        if (match(current, keyword, "if"))
         {
             //TODO
         }
-        else if (remaining > 3 && current.type == name && match(tokens[i+1], syntax, "=") && tokens[i+2].type == string_literal)
+        else if (current.type == name)
         {
-            result[current.value] = tokens[i + 2].value;
+            syntax_assert(tokens[i + 1], "=");
+            type_assert(tokens[i + 2], string_literal);
+            result[current.value] = tokens[i + 2].value.substr(1, tokens[i+2].value.size()-2);
             i += 2;
         }
         else if (current.type == comment)
@@ -53,6 +75,7 @@ void parse(ifstream& file, map<string, string>& result){
         }
         else
         {
+            std::cerr << "Unexpected token: " << current << std::endl;
             throw "Unexpected token";
         }
     }

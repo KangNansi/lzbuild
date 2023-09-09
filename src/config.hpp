@@ -27,10 +27,10 @@ struct config{
     }
     bool is_excluded(std::filesystem::path path) const
     {
-        for (int i = 0; i < exclude.size(); i++)
+        for (size_t i = 0; i < exclude.size(); i++)
         {
-            std::cout << std::filesystem::relative(path, exclude[i]) << std::endl;
-            if (!std::filesystem::relative(path, exclude[i]).empty())
+            auto exclude_path = std::filesystem::path(exclude[i]);
+            if (std::filesystem::equivalent(path, exclude_path))
             {
                 return true;
             }
