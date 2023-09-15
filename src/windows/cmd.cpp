@@ -1,3 +1,4 @@
+#ifdef WIN32
 #include "cmd.hpp"
 #include <iostream>
 
@@ -11,7 +12,7 @@ std::string get_error(){
         NULL,
         error_code,
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPSTR)&error_message, ;
+        (LPSTR)&error_message,
         0,
         NULL
     );
@@ -111,3 +112,5 @@ Process::Pipe Process::create_pipe(){
 void SetEnv(std::string variable, std::string value){
     SetEnvironmentVariable(const_cast<LPCSTR>(variable.c_str()), const_cast<LPCSTR>(value.c_str()));
 }
+
+#endif

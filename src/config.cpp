@@ -3,8 +3,8 @@
 #include <sstream>
 #include <map>
 #include <iostream>
-#include <tokenizer/tokenizer.hpp>
-#include <tokenizer/extensions.hpp>
+#include <stack>
+#include "expression.hpp"
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -14,71 +14,49 @@ struct kvp{
     std::string value;
 };
 
-bool match(tokenizer::token token, short type, std::string value)
+
+bool match_platform(std::string platform)
 {
-    return token.type == type && token.value == value;
+#ifdef WIN32
+    return platform == "WIN32";
+#elif __linux__
+    return platform == "__linux__";
+#else
+    return false;
+#endif
 }
 
-void assert(tokenizer::token token, short type, std::string value, std::string exception)
+struct config_creator : public lzlang::expr_visitor
 {
-    if (!match(token, type, value))
+    map<std::string, std::string>& _ctx;
+
+    config_creator(map<std::string, std::string>& ctx) : _ctx(ctx) {}
+
+    void assign(tokenizer::token name, tokenizer::token value)
     {
-        throw exception;
+        _ctx[name.value] = value.value.substr(1, value.value.size() - 2);
     }
-}
-
-short syntax;
-void syntax_assert(tokenizer::token token, std::string value)
-{
-    assert(token, syntax, value, "Syntax error: expected " + value + ", found " + token.value);
-}
-
-void type_assert(tokenizer::token token, short type)
-{
-    if (token.type != type)
+    void _if(tokenizer::token condition, lzlang::expression& _true, lzlang::expression* _false)
     {
-        throw "Syntax error: unexpected token " + token.str();
+        if (match_platform(condition.value))
+        {
+            _true.visit(*this);
+        }
+        else if(_false != nullptr)
+        {
+            _false->visit(*this);
+        }
     }
-}
+};
 
 void parse(ifstream& file, map<string, string>& result){
     stringstream ss;
     ss << file.rdbuf();
     string text = ss.str();
 
-    tokenizer::engine token_engine;
-    short keyword = token_engine.add<tokenizer::keyword_matcher>("if", "else");
-    syntax = token_engine.add("[{}=]");
-    short name = token_engine.add("[@_][@_#]*");
-    short comment = token_engine.add<tokenizer::line_comment_matcher>("#");
-    short string_literal = token_engine.add<tokenizer::string_literal_matcher>();
-
-    auto tokens = token_engine.tokenize(text);
-
-    for (size_t i = 0; i < tokens.size(); i++)
-    {
-        auto current = tokens[i];
-        if (match(current, keyword, "if"))
-        {
-            //TODO
-        }
-        else if (current.type == name)
-        {
-            syntax_assert(tokens[i + 1], "=");
-            type_assert(tokens[i + 2], string_literal);
-            result[current.value] = tokens[i + 2].value.substr(1, tokens[i+2].value.size()-2);
-            i += 2;
-        }
-        else if (current.type == comment)
-        {
-            // nothing
-        }
-        else
-        {
-            std::cerr << "Unexpected token: " << current << std::endl;
-            throw "Unexpected token";
-        }
-    }
+    auto expr = lzlang::parse(text);
+    config_creator creator(result);
+    expr->visit(creator);
 }
 
 const string get_value(const map<string, string>& map, const string& key, const string& default_value){

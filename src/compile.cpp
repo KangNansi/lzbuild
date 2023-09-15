@@ -12,7 +12,7 @@
 namespace fs = std::filesystem;
 using namespace std;
 
-void initialize_compiler_cmd(std::stringstream& stream, const ArgReader& args, const config& cfg){
+void initialize_compiler_cmd(std::stringstream& stream, const config& cfg){
     stream << cfg.compiler << " ";
     stream << "-g "; // debug by default
     stream << "-Wall -Wextra ";
@@ -45,7 +45,7 @@ fs::file_time_type library_last_write(const config& cfg)
     return last_write;
 }
 
-Process::Result build(const file& file, const ArgReader& args, const config& cfg, stringstream& output){
+Process::Result build(const file& file, const config& cfg, stringstream& output){
     auto object_path = file.get_object_path();
     auto dir_path = object_path.remove_filename();
     fs::path directory;
@@ -58,7 +58,7 @@ Process::Result build(const file& file, const ArgReader& args, const config& cfg
 
     stringstream ss;
 
-    initialize_compiler_cmd(ss, args, cfg);
+    initialize_compiler_cmd(ss, cfg);
     
     ss << "-o " << file.get_object_path() << " -c " << file.get_file_path();
  
@@ -88,10 +88,10 @@ Process::Result build(const file& file, const ArgReader& args, const config& cfg
     }
 }
 
-Process::Result link(fs::path binary_path, const std::vector<file>& files, const ArgReader& args, const config& cfg, stringstream& output){
+Process::Result link(fs::path binary_path, const std::vector<file>& files, const config& cfg, stringstream& output){
     stringstream cmd;
 
-    initialize_compiler_cmd(cmd, args, cfg);
+    initialize_compiler_cmd(cmd, cfg);
     
     cmd << "-o " << binary_path;
     for(auto& f: files){
@@ -131,7 +131,7 @@ Process::Result link_library(fs::path binary_path, const std::vector<file>& file
     return Process::Run(cmd.str().c_str(), output);
 }
 
-bool create_output(const config& cfg, const std::vector<file>& files, const ArgReader& args, fs::file_time_type last_write, bool require_rebuild){
+bool create_output(const config& cfg, const std::vector<file>& files, fs::file_time_type last_write, bool require_rebuild){
     fs::path binary_path = cfg.get_binary_path();
     if (fs::exists(binary_path))
     {
@@ -157,7 +157,7 @@ bool create_output(const config& cfg, const std::vector<file>& files, const ArgR
     if(!cfg.is_library){
         cout << "Creating executable..." << endl;
         stringstream link_output;
-        if(link(binary_path, files, args, cfg, link_output) == Process::Result::Failed){
+        if(link(binary_path, files, cfg, link_output) == Process::Result::Failed){
             cerr << term::red << "Error creating executable" << term::reset << endl;
             cout << link_output.str() << flush;
             return false;
@@ -177,7 +177,7 @@ bool create_output(const config& cfg, const std::vector<file>& files, const ArgR
 }
 
 
-int build(std::vector<file> files, config& cfg, const ArgReader& args, bool verbose, bool dependencies_only, bool full_rebuild, bool force_linking)
+int build(std::vector<file> files, config& cfg, bool dependencies_only, bool full_rebuild, bool force_linking)
 {
     if(dependencies_only){
         return 0;
@@ -193,7 +193,7 @@ int build(std::vector<file> files, config& cfg, const ArgReader& args, bool verb
                 cout << term::cyan << "Rebuilding " << f.get_file_path() << ": " << term::reset << std::flush;
                 require_rebuild = true;
                 stringstream build_output;
-                if(build(f, args, cfg, build_output) == Process::Result::Failed){
+                if(build(f, cfg, build_output) == Process::Result::Failed){
                     build_failed = true;
                     cout << term::red << "Failed " << term::reset << endl;
                     cout << build_output.str() << flush;
@@ -226,7 +226,7 @@ int build(std::vector<file> files, config& cfg, const ArgReader& args, bool verb
         return -1;
     }
     
-    if (!create_output(cfg, files, args, last_write, require_rebuild || force_linking))
+    if (!create_output(cfg, files, last_write, require_rebuild || force_linking))
     {
         return -1;
     }

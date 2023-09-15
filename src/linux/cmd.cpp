@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include "cmd.hpp"
 #include "sys/types.h"
 #include "unistd.h"
@@ -11,7 +12,7 @@ std::vector<std::string> parse(const char* cmd)
 {
     std::vector<std::string> args;
     std::string current;
-    for (int i = 0; cmd[i] != NULL; i++)
+    for (int i = 0; cmd[i] != '\0'; i++)
     {
         if (cmd[i] == ' ' || cmd[i] == '"')
         {
@@ -51,7 +52,7 @@ Process::Result Process::Run(const char* cmd, std::ostream& output)
         dup2(out[1], STDERR_FILENO);
         std::vector<char*> fargs;
         fargs.reserve(args.size() + 1);
-        for (int i = 0; i < args.size() + 1; i++)
+        for (size_t i = 0; i < args.size() + 1; i++)
         {
             if (i < args.size())
             {
@@ -81,9 +82,10 @@ Process::Result Process::Run(const char* cmd, std::ostream& output)
         {
             break;
         }
-        buf[n] = NULL;
+        buf[n] = '\0';
         output << buf;
     }
     close(out[0]);
     return status == 0 ? Process::Result::Success : Process::Result::Failed;
 }
+#endif

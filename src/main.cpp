@@ -98,7 +98,7 @@ int main(int argc, char** argv)
             }
         }
 
-        if (build(files, cfg, args, verbose, dependencies_only, full_rebuild, force_linking) != 0)
+        if (build(files, cfg, dependencies_only, full_rebuild, force_linking) != 0)
         {
             return -1;
         }
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
                 fs::copy(binary_path, executable);
                 cout << term::green << "Exported " << binary_path << " to " << executable << term::green << endl;
             }
-            catch (fs::filesystem_error error)
+            catch (fs::filesystem_error& error)
             {
                 cerr << term::red << "Could not export executable: " << error.what() << term::reset << endl;
             }
