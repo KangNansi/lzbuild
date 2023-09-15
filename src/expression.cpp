@@ -12,6 +12,19 @@ enum TokenType
     String = 4
 };
 
+std::string str(short type)
+{
+    switch (type)
+    {
+    case TokenType::Keyword: return "Keyword";
+    case TokenType::Syntax: return "Syntax";
+    case TokenType::Name: return "Name";
+    case TokenType::Comment: return "Comment";
+    case TokenType::String: return "String";
+    default: return "Unknown";
+    }
+}
+
 bool match(token token, short type, std::string value)
 {
     return token.type == type && token.value == value;
@@ -24,13 +37,13 @@ bool match(token token, short type)
 
 token assert(token token, short type, std::string value)
 {
-    if (!match(token, type, value)) throw "Unexpected token " + token.str();
+    if (!match(token, type, value)) throw "Unexpected token " + token.str() + ", expected " + str(type) + ": " + value;
     return token;
 }
 
 token assert(token token, short type)
 {
-    if (!match(token, type)) throw "Unexpected token " + token.str();
+    if (!match(token, type)) throw "Unexpected token " + token.str() + ", expected type: " + str(type);
     return token;
 }
 
@@ -39,7 +52,7 @@ std::unique_ptr<expression> parse_expression(const std::vector<token>& tokens, s
 std::unique_ptr<expression> parse_ifexpr(const std::vector<token>& tokens, size_t& cursor)
 {
     std::unique_ptr<if_expr> ifexpr = std::make_unique<if_expr>();
-    ifexpr->condition = assert(tokens[cursor++], TokenType::String);
+    ifexpr->condition = assert(tokens[cursor++], TokenType::Name);
     ifexpr->_true = parse_expression(tokens, cursor);
     if (cursor < tokens.size() && match(tokens[cursor], TokenType::Keyword, "else"))
     {
