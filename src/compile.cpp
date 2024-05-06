@@ -15,6 +15,7 @@ using namespace std;
 void initialize_compiler_cmd(std::stringstream& stream, const config& cfg){
     stream << cfg.compiler << " ";
     stream << "-g "; // debug by default
+    stream << "-Wfatal-errors ";
     stream << "-Wall -Wextra ";
     stream << "-fdiagnostics-color=always ";
     stream << "-std=" << cfg.standard << " ";

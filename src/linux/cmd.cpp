@@ -50,6 +50,7 @@ Process::Result Process::Run(const char* cmd, std::ostream& output)
         close(out[0]);
         dup2(out[1], STDOUT_FILENO);
         dup2(out[1], STDERR_FILENO);
+        close(out[1]);
         std::vector<char*> fargs;
         fargs.reserve(args.size() + 1);
         for (size_t i = 0; i < args.size() + 1; i++)
@@ -68,22 +69,23 @@ Process::Result Process::Run(const char* cmd, std::ostream& output)
         {
             std::cerr << "Error:" << strerror(errno) << std::endl;
         }
-        close(out[1]);
         exit(result);
     }
     close(out[1]);
-    int status;
+    int status = 0;
     char buf[33];
-    wait(&status);
-    while (true)
+    while (waitpid(pid, &status, WNOHANG) >= 0)
     {
-        int n = read(out[0], buf, 32);
-        if (n <= 0)
+        while (true)
         {
-            break;
+            int n = read(out[0], buf, 32);
+            if (n <= 0)
+            {
+                break;
+            }
+            buf[n] = '\0';
+            output << buf;
         }
-        buf[n] = '\0';
-        output << buf;
     }
     close(out[0]);
     return status == 0 ? Process::Result::Success : Process::Result::Failed;
