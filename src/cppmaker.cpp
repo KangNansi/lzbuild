@@ -123,9 +123,10 @@ Process::Result CPPMaker::build()
 
 void CPPMaker::export_binary()
 {
-    if (!_config.executable_export_path.empty())
+    if (_config.executable_export_path.empty())
     {
         std::cerr << term::red << "No binary export path specified" << term::reset << std::endl;
+        return;
     }
     
     export_binary(_config.executable_export_path);
