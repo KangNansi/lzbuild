@@ -17,8 +17,8 @@ struct kvp{
 
 bool match_platform(std::string platform)
 {
-#ifdef WIN32
-    return platform == "WIN32";
+#ifdef _WIN32
+    return platform == "_WIN32";
 #elif __linux__
     return platform == "__linux__";
 #else
@@ -118,7 +118,7 @@ void read_config(config& config, std::filesystem::path path)
     if(get_value(value_map, "is_library", "false") == "true"){
         config.is_library = true;
     }
-#ifdef WIN32
+#ifdef _WIN32
     auto bin_ext = ".exe";
     auto lib_ext = ".lib";
 #else

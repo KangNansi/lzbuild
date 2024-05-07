@@ -1,6 +1,7 @@
 #pragma once
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 class ArgReader{
     private:
@@ -20,7 +21,7 @@ class ArgReader{
         return it != arg_map.end();
     }
 
-    bool get(std::string flag, std::string& arg) {
+    bool get(std::string flag, std::string& arg) const {
         auto it = arg_map.find(flag);
         if(it != arg_map.end() && (size_t)it->second + 1 < args.size()){
             arg = args[it->second + 1];
