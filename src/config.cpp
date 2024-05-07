@@ -34,7 +34,15 @@ struct config_creator : public lzlang::expr_visitor
 
     void assign(tokenizer::token name, tokenizer::token value)
     {
-        _ctx[name.value] = value.value.substr(1, value.value.size() - 2);
+        auto it = _ctx.find(name.value);
+        if (it != _ctx.end())
+        {
+            _ctx[name.value] = it->second + ";" + value.value.substr(1, value.value.size() - 2);
+        }
+        else
+        {
+            _ctx[name.value] = value.value.substr(1, value.value.size() - 2);
+        }
     }
     void _if(tokenizer::token condition, lzlang::expression& _true, lzlang::expression* _false)
     {
@@ -111,6 +119,7 @@ void read_config(config& config, std::filesystem::path path)
     get_values(value_map, "libpaths", config.library_paths);
     get_values(value_map, "sources", config.source_folders);
     get_values(value_map, "exclude", config.exclude);
+    get_values(value_map, "dependency", config.dependencies);
     if (config.source_folders.size() == 0)
     {
         config.source_folders.push_back("src");

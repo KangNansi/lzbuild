@@ -38,6 +38,11 @@ int main(int argc, char** argv)
         }
 
     }
+    catch (const std::filesystem::filesystem_error& error)
+    {
+        std::cerr << error.path1() << " " << error.path2() << std::endl;
+        std::cerr << error.what() << std::endl;
+    }
     catch (std::string error)
     {
         std::cerr << error << std::endl;

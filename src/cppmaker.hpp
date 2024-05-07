@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <sstream>
+#include <iostream>
 #include "args.hpp"
 #include "file.hpp"
 #include "config.hpp"
@@ -16,8 +17,11 @@ struct cppmaker_options
     bool dependencies_only = false;
     bool full_rebuild = false;
     bool force_linking = false;
+    bool debug = true;
     std::string config = "cppmaker.cfg";
+    std::filesystem::path root_directory = std::filesystem::current_path();
 
+    cppmaker_options(){}
     cppmaker_options(const ArgReader& args);
 };
 
@@ -34,20 +38,26 @@ private:
     cppmaker_options _options;
     config _config;
     std::vector<file> _files;
+    std::ostream& _output = std::cout;
 
 public:
     CPPMaker(const ArgReader& args);
-    CPPMaker(const cppmaker_options& options);
+    CPPMaker(const cppmaker_options& options, std::ostream& output = std::cout);
 
     Process::Result build();
     void export_binary();
+    void export_binary(std::filesystem::path target);
     void run();
+    std::string get_name() { return _config.name; }
 
 private:
     void build_file_registry();
     void export_header_files();
+    void export_header_files(std::filesystem::path target);
+    Process::Result handle_dependencies();
     Process::Result compile_object(const file& file, std::stringstream& output);
     bool binary_requires_rebuild(fs::file_time_type last_write);
     Process::Result link(std::stringstream& output);
     Process::Result link_library(std::stringstream& output);
+    std::filesystem::path get_pretty_path(std::filesystem::path path);
 };

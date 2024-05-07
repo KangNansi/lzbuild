@@ -19,6 +19,7 @@ struct config{
     std::vector<std::string> exclude;
     std::string link_etc;
     bool is_library = false;
+    std::vector<std::string> dependencies;
 
     std::filesystem::path get_binary_dir() const{
         return "bin";
