@@ -18,6 +18,7 @@ struct cppmaker_options
     bool full_rebuild = false;
     bool force_linking = false;
     bool debug = true;
+    bool output_command = false;
     std::string config = "cppmaker.cfg";
     std::filesystem::path root_directory = std::filesystem::current_path();
 

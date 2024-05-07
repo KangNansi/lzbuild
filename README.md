@@ -14,3 +14,5 @@
 <b>-c [CONFIG_PATH]</b>: specify config
 
 <b>-g --debug</b>: build in debug mode
+
+<b>--output-command</b>: output command

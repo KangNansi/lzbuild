@@ -18,6 +18,7 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
     full_rebuild = args.has("-fr");
     force_linking = args.has("-fl");
     debug = args.has("--debug") || args.has("-g");
+    output_command = args.has("--output-command");
     std::string arg_value;
     if (args.get("-c", arg_value))
     {
@@ -320,6 +321,7 @@ Process::Result CPPMaker::compile_object(const file& file, std::stringstream& ou
         command << " " << _config.cflags;
     }
 
+    if (_options.output_command) _output << std::endl << command.str() << std::endl;
     return Process::Run(command.str().c_str(), output);
 }
 
@@ -392,7 +394,7 @@ Process::Result CPPMaker::link(std::stringstream& output)
         command << " " << _config.link_etc;
     }
 
-    _output << command.str() << std::endl;
+    if(_options.output_command) _output << command.str() << std::endl;
     return Process::Run(command.str().c_str(), output);
 }
 
@@ -411,6 +413,7 @@ Process::Result CPPMaker::link_library(std::stringstream& output)
         }
     }
 
+    if (_options.output_command) _output << command.str() << std::endl;
     return Process::Run(command.str().c_str(), output);
 }
 
