@@ -139,7 +139,8 @@ int main(int argc, char** argv)
         if(run_after_build){
             cout << "Running executable" << endl;
 
-            try{
+            try
+            {
                 Process::Run(binary_path.string().c_str(), std::cout);
             }
             catch(const std::string& error){

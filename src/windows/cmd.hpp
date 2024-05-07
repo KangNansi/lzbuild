@@ -1,4 +1,4 @@
-#include "Windows.h"
+#include "windows.h"
 #include <string>
 #include <vector>
 #include <sstream>
@@ -18,7 +18,8 @@ class Process {
 
     public:
     static Result Run(const char* cmd);
-    static Result Run(const char* cmd, std::stringstream& output);
+    //static Result Run(const char* cmd, std::stringstream& output);
+    static Result Run(const char* cmd, std::ostream& output);
 
     private:
     static PROCESS_INFORMATION create(const char* cmd, HANDLE in, HANDLE out, HANDLE err);

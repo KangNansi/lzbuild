@@ -1,4 +1,3 @@
-#ifdef WIN32
 #include "cmd.hpp"
 #include <iostream>
 
@@ -34,7 +33,27 @@ Process::Result Process::Run(const char* cmd)
     return result;
 }
 
-Process::Result Process::Run(const char* cmd, std::stringstream& output) {
+// Process::Result Process::Run(const char* cmd, std::stringstream& output) {
+//     Pipe pipe = create_pipe();
+//     HANDLE std_in = GetStdHandle(STD_INPUT_HANDLE);
+
+//     auto info = create(cmd, std_in, pipe.write, pipe.write);
+
+//     CloseHandle(pipe.write);
+//     DWORD read_chars;
+//     CHAR rd_buffer[256];
+//     while(ReadFile(pipe.read, rd_buffer, 256, &read_chars, NULL) && read_chars > 0){
+//         output.write(rd_buffer, read_chars);
+//     }
+//     CloseHandle(pipe.read);
+//     WaitForSingleObject(info.hProcess, INFINITE);
+//     auto result = get_result(info);
+//     release(info);
+//     return result;
+// }
+
+Process::Result Process::Run(const char* cmd, std::ostream& output)
+{
     Pipe pipe = create_pipe();
     HANDLE std_in = GetStdHandle(STD_INPUT_HANDLE);
 
@@ -112,5 +131,3 @@ Process::Pipe Process::create_pipe(){
 void SetEnv(std::string variable, std::string value){
     SetEnvironmentVariable(const_cast<LPCSTR>(variable.c_str()), const_cast<LPCSTR>(value.c_str()));
 }
-
-#endif
