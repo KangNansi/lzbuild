@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include "term.hpp"
+#include "git.hpp"
 
 namespace fs = std::filesystem;
 
@@ -94,7 +95,7 @@ Process::Result CPPMaker::build()
         return Process::Result::Failed;
     }
 
-    if (!binary_requires_rebuild(last_write))
+    if (!_options.force_linking && !binary_requires_rebuild(last_write))
     {
         _output << "Binary is up to date." << std::endl;
         return Process::Result::Success;
@@ -202,7 +203,7 @@ void CPPMaker::build_file_registry()
                 continue;
             }
             
-            _files.push_back(file(*it, _options.root_directory));
+            _files.push_back(file(*it, _options.root_directory, fs::relative(*it, root_folder)));
             if(_options.verbose){
                 _output << _files.back() << std::endl;
             }
@@ -230,9 +231,8 @@ void CPPMaker::export_header_files(std::filesystem::path target)
     {
         if (file.get_type() == FILE_TYPE::HEADER)
         {
-            auto path = file.get_file_path().relative_path();
-            path = fs::relative(path, *(path.begin()));
-            auto dest_path = target / path;
+            auto path = file.get_source_path();
+            auto dest_path = target / _config.name / path;
             if(fs::exists(dest_path)){
                 fs::remove(dest_path);
             }
@@ -245,34 +245,57 @@ void CPPMaker::export_header_files(std::filesystem::path target)
 
 Process::Result CPPMaker::handle_dependencies()
 {
+    bool library_added = false;
     for (auto dependency : _config.dependencies)
     {
+        fs::path dependency_path(dependency);
+        if (dependency_path.extension().compare(".git") == 0)
+        {
+            auto repo_name = dependency_path.stem();
+            auto target_path = compute_path(_options.root_directory, "dep") / repo_name;
+            std::stringstream output;
+            if (fs::exists(target_path) && fs::exists(target_path / ".git"))
+            {
+                _output << term::blue << repo_name.string() << ":" << term::reset << " updating git repository..." << std::endl;
+                git_update(target_path, output);
+            }
+            else
+            {
+                _output << term::blue << repo_name.string() << ":" << term::reset << " cloning git repository" << std::endl;
+                fs::create_directories(target_path);
+                git_clone(target_path, dependency, output);
+            }
+            dependency_path = target_path;
+        }
+
         cppmaker_options options;
-        options.root_directory = dependency;
+        options.root_directory = dependency_path;
         options.debug = _options.debug;
         options.full_rebuild = _options.full_rebuild;
         std::stringstream ss;
         CPPMaker maker(options, ss);
-        _output << term::bmagenta << "Rebuilding " << maker.get_name() << ": " << term::reset;
+        _output << term::blue << "Rebuilding " << maker.get_name() << ": " << term::reset;
         switch (maker.build())
         {
         case Process::Result::Success:
         {
             _output << term::green << "Rebuilt" << term::reset << std::endl;
-            auto libdir = compute_path(_options.root_directory, "lib");
-            if (!fs::exists(libdir))
-            {
-                fs::create_directory(libdir);
-            }
-            maker.export_binary(libdir);
             if (maker._config.is_library)
             {
-                auto includedir = compute_path(_options.root_directory, "include") / maker.get_name();
-                if (!fs::exists(includedir))
-                {
-                    fs::create_directories(includedir);
-                }
+                auto libdir = compute_path(_options.root_directory, "lib");
+                fs::create_directories(libdir);
+                maker.export_binary(libdir);
+                auto includedir = compute_path(_options.root_directory, "include");
+                fs::create_directories(includedir);
                 maker.export_header_files(includedir);
+                library_added = true;
+                _config.libraries.push_back(maker.get_name());
+            }
+            else
+            {
+                auto bindir = compute_path(_options.root_directory, "bin");
+                fs::create_directories(bindir);
+                maker.export_binary(bindir);
             }
         }
             break;
@@ -282,6 +305,12 @@ Process::Result CPPMaker::handle_dependencies()
             return Process::Result::Failed;
             break;
         }
+    }
+
+    if (library_added)
+    {
+        _config.library_paths.push_back(compute_path(_options.root_directory, "lib").string());
+        _config.include_folder.push_back(compute_path(_options.root_directory, "include").string());
     }
     return Process::Result::Success;
 }

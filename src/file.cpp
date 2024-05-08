@@ -8,9 +8,10 @@
 using namespace std;
 using uint = unsigned int;
 
-file::file(fs::path path, fs::path workspace_folder){
+file::file(fs::path path, fs::path workspace_folder, fs::path source_path){
     this->path = path;
     this->workspace_folder = workspace_folder;
+    this->source_path = source_path;
 
     if(path.extension() == ".cpp" || path.extension() == ".c"){
         type = FILE_TYPE::SOURCE;

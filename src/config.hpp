@@ -24,7 +24,12 @@ struct config{
     std::filesystem::path get_binary_dir() const{
         return "bin";
     }
-    std::filesystem::path get_binary_path() const{
+    std::filesystem::path get_binary_path() const
+    {
+        if (is_library)
+        {
+            return get_binary_dir() / ("lib" + name + output_extension);
+        }
         return get_binary_dir() / (name + output_extension);
     }
     bool is_excluded(std::filesystem::path path) const
@@ -39,7 +44,7 @@ struct config{
         }
         return false;
     }
-    
+
     void print(std::ostream& stream)
     {
         stream << "is_library: " << is_library << std::endl;
