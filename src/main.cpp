@@ -26,7 +26,10 @@ int main(int argc, char** argv)
         }
 
         CPPMaker maker(args);
-        maker.build();
+        if (maker.build() == Process::Result::Failed)
+        {
+            return -1;
+        }
         
         if (export_after_build)
         {

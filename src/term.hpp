@@ -38,5 +38,12 @@ namespace term {
     const char* const bblue_bg    = "\033[104m";
     const char* const bmagenta_bg = "\033[105m";
     const char* const bcyan_bg    = "\033[106m";
-    const char* const bwhite_bg   = "\033[107m";
+    const char* const bwhite_bg = "\033[107m";
+
+    // cursor manipulation
+    const char* const save_cursor = "\0337";
+    const char* const restore_cursor = "\0338";
+
+    // erase manipulation
+    const char* const erase_from_cursor_to_end = "\033[0J";
 }

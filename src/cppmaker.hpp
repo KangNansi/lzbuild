@@ -5,6 +5,7 @@
 #include "args.hpp"
 #include "file.hpp"
 #include "config.hpp"
+#include "dependency_tree.hpp"
 #ifdef _WIN32
  #include "windows/cmd.hpp"
 #else
@@ -19,6 +20,7 @@ struct cppmaker_options
     bool force_linking = false;
     bool debug = true;
     bool output_command = false;
+    bool show_warning = false;
     std::string config = "cppmaker.cfg";
     std::filesystem::path root_directory = std::filesystem::current_path();
 
@@ -40,6 +42,7 @@ private:
     config _config;
     std::vector<file> _files;
     std::ostream& _output = std::cout;
+    dependency_tree _dep_tree;
 
 public:
     CPPMaker(const ArgReader& args);
@@ -56,9 +59,11 @@ private:
     void export_header_files();
     void export_header_files(std::filesystem::path target);
     Process::Result handle_dependencies();
+    BuildStatus compile_project_async(fs::file_time_type& last_write);
     Process::Result compile_object(const file& file, std::stringstream& output);
     bool binary_requires_rebuild(fs::file_time_type last_write);
     Process::Result link(std::stringstream& output);
     Process::Result link_library(std::stringstream& output);
     std::filesystem::path get_pretty_path(std::filesystem::path path);
+    void export_dependency(const CPPMaker& target);
 };

@@ -8,7 +8,7 @@
 using namespace std;
 using uint = unsigned int;
 
-file::file(fs::path path, fs::path workspace_folder, fs::path source_path){
+file::file(fs::path path, fs::path workspace_folder, fs::path source_path, dependency_context& ctx){
     this->path = path;
     this->workspace_folder = workspace_folder;
     this->source_path = source_path;
@@ -27,7 +27,7 @@ file::file(fs::path path, fs::path workspace_folder, fs::path source_path){
     }
 
     last_write = fs::last_write_time(path);
-    compute_dependencies();
+    compute_dependencies(ctx);
 }
 
 bool file::read_include(const std::string& line, std::string& path)
@@ -62,7 +62,7 @@ bool file::read_include(const std::string& line, std::string& path)
     return false;
 }
 
-void file::compute_dependencies(){
+void file::compute_dependencies(dependency_context& ctx){
     ifstream strm(path.c_str());
     std::string line;
 
@@ -80,6 +80,14 @@ void file::compute_dependencies(){
                 continue;
             }
 
+            for (auto& folder : ctx.include_folders)
+            {
+                fs::path target = folder / include;
+                if (fs::exists(target))
+                {
+                    dependencies.push_back(target);
+                }
+            }
             fs::path abs = fs::current_path() / "src" / fs::path(include);
             if(fs::exists(abs)){
                 dependencies.push_back(abs);

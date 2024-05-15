@@ -1,7 +1,7 @@
 # Arguments
 <b>-v</b>: Verbose
 
-<b>-d</b>: dependencies only
+<b>-d</b>: build dependencies only
 
 <b>-fr</b>: Full rebuild
 

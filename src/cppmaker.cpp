@@ -2,10 +2,14 @@
 #include <filesystem>
 #include <iostream>
 #include <algorithm>
+#include <queue>
+#include <future>
+#include <chrono>
 #include "term.hpp"
 #include "git.hpp"
 
 namespace fs = std::filesystem;
+using namespace std::chrono_literals;
 
 fs::path compute_path(fs::path root, fs::path target)
 {
@@ -20,6 +24,7 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
     force_linking = args.has("-fl");
     debug = args.has("--debug") || args.has("-g");
     output_command = args.has("--output-command");
+    show_warning = args.has("--show-warning") || args.has("-sw");
     std::string arg_value;
     if (args.get("-c", arg_value))
     {
@@ -34,60 +39,33 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
 CPPMaker::CPPMaker(const ArgReader& args) : _options(args)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
-    build_file_registry();
 }
 
 CPPMaker::CPPMaker(const cppmaker_options& options, std::ostream& output) : _options(options), _output(output)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
-    build_file_registry();
 }
 
 Process::Result CPPMaker::build()
 {
-    if(_options.dependencies_only){
-        return Process::Result::Success;
-    }
-
     if (handle_dependencies() == Process::Result::Failed)
     {
         _output << term::red << "Failed to build dependencies" << term::reset << std::endl;
         return Process::Result::Failed;
     }
 
+    build_file_registry();
+
+    if (_options.dependencies_only)
+    {
+        return Process::Result::Success;
+    } 
+
     BuildStatus status = BuildStatus::NoChange;
     fs::file_time_type last_write = fs::file_time_type::min();
-    for(auto& f: _files){
-        if(f.get_type() == FILE_TYPE::SOURCE){
-            bool should_rebuild = _options.full_rebuild || f.need_rebuild(_files);
-            if(should_rebuild){
-                _output << term::cyan << "Rebuilding " << f.get_file_path() << ": " << term::reset << std::flush;
-                status = BuildStatus::Changed;
-                std::stringstream build_output;
-                if(compile_object(f, build_output) == Process::Result::Failed){
-                    status = BuildStatus::Failed;
-                    _output << term::red << "Failed " << term::reset << std::endl;
-                    _output << build_output.str() << std::flush;
-                    break;
-                }
-                else
-                {
-                    _output << build_output.str() << std::flush;
-                    _output << term::green << "Rebuilt" << term::reset << std::endl;
-                }
-            }
-            else{
-                //cout << "Already done" << endl;
-            }
-            if (fs::exists(f.get_object_path()))
-            {
-                auto file_last_write = fs::last_write_time(f.get_object_path());
-                if(file_last_write > last_write){
-                    last_write = file_last_write;
-                }
-            }
-        }
-    }
+
+
+    status = compile_project_async(last_write);
 
     if (status == BuildStatus::Failed)
     {
@@ -148,6 +126,10 @@ void CPPMaker::export_binary(std::filesystem::path target)
     {
         if (fs::exists(executable))
         {
+            if (fs::last_write_time(executable) > fs::last_write_time(binary_path))
+            {
+                return;
+            }
             fs::remove(executable);
         }
         fs::copy(binary_path, executable);
@@ -187,6 +169,12 @@ void CPPMaker::build_file_registry()
         fs::create_directory(bin_dir);
     }
 
+    dependency_context ctx;
+    for (auto& include_folder : _config.include_folder)
+    {
+        ctx.include_folders.push_back(include_folder);
+    }
+
     for (auto& src_folder : _config.source_folders)
     {
         auto root_folder = compute_path(_options.root_directory, src_folder);
@@ -202,13 +190,19 @@ void CPPMaker::build_file_registry()
             {
                 continue;
             }
-            
-            _files.push_back(file(*it, _options.root_directory, fs::relative(*it, root_folder)));
+
+
+            _files.push_back(file(*it, _options.root_directory, fs::relative(*it, root_folder), ctx));
             if(_options.verbose){
                 _output << _files.back() << std::endl;
             }
+            auto& file = _files.back();
+            if (file.get_type() == FILE_TYPE::SOURCE)
+            {
+                _dep_tree.add(file.get_file_path(), ctx.include_folders);
+            }
         }
-    }   
+    }
 }
 
 void CPPMaker::export_header_files()
@@ -246,6 +240,7 @@ void CPPMaker::export_header_files(std::filesystem::path target)
 Process::Result CPPMaker::handle_dependencies()
 {
     bool library_added = false;
+
     for (auto dependency : _config.dependencies)
     {
         fs::path dependency_path(dependency);
@@ -290,6 +285,22 @@ Process::Result CPPMaker::handle_dependencies()
                 maker.export_header_files(includedir);
                 library_added = true;
                 _config.libraries.push_back(maker.get_name());
+                for (auto libs : maker._config.libraries)
+                {
+                    auto it = std::find(_config.libraries.begin(), _config.libraries.end(), libs.c_str());
+                    if (it == _config.libraries.end())
+                    {
+                        _config.libraries.push_back(libs);
+                    }
+                    else
+                    {
+                        std::rotate(it, it + 1, _config.libraries.end());
+                    }
+                }
+                for (auto include : maker._config.include_folder)
+                {
+                    _config.include_folder.push_back(include);
+                }
             }
             else
             {
@@ -297,6 +308,7 @@ Process::Result CPPMaker::handle_dependencies()
                 fs::create_directories(bindir);
                 maker.export_binary(bindir);
             }
+            maker.export_dependency(*this);
         }
             break;
         case Process::Result::Failed:
@@ -313,6 +325,132 @@ Process::Result CPPMaker::handle_dependencies()
         _config.include_folder.push_back(compute_path(_options.root_directory, "include").string());
     }
     return Process::Result::Success;
+}
+
+
+BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
+{
+    struct task
+    {
+        file* file;
+        std::future<Process::Result> result;
+        std::stringstream output;
+        bool finished = false;
+        Process::Result status = Process::Result::Success;
+    };
+    BuildStatus status = BuildStatus::NoChange;
+
+    std::vector<task> tasks;
+    for (auto& f : _files)
+    {
+        if (f.get_type() == FILE_TYPE::SOURCE)
+        {
+            auto obj_file_path = f.get_object_path();
+            bool should_rebuild = _options.full_rebuild
+                || !fs::exists(obj_file_path)
+                || _dep_tree.need_rebuild(f.get_file_path(), fs::last_write_time(obj_file_path));
+            
+            if (should_rebuild)
+            {
+                status = BuildStatus::Changed;
+
+                task task;
+                task.file = &f;
+                tasks.push_back(std::move(task));
+            }
+            else if (_options.verbose)
+            {
+                _output << term::blue << "Skipped " << f.get_file_path() << term::reset << std::endl;
+            }
+        }
+    }
+
+    std::mutex task_mutex;
+    const int NUM_THREAD = 32;
+    int running = 0;
+    bool finished = false;
+
+    auto handle_result = [&]()
+        {
+            size_t finished_task = 0;
+            while (finished_task < tasks.size())
+            {
+                for (size_t i = 0; i < tasks.size(); i++)
+                {
+                    auto& t = tasks.at(i);
+                    if (!t.finished && t.result.valid() && t.result.wait_for(0s) == std::future_status::ready)
+                    {
+                        task_mutex.lock();
+                        running--;
+                        task_mutex.unlock();
+                        finished_task++;
+                        t.finished = true;
+                        _output << term::cyan << "Rebuilding " << t.file->get_file_path() << ": " << term::reset << std::flush;
+                        auto result = t.result.get();
+                        t.status = result;
+                        if (result == Process::Result::Failed)
+                        {
+                            status = BuildStatus::Failed;
+                            _output << term::red << "Failed " << term::reset << std::endl;
+                        }
+                        else
+                        {
+                            _output << term::green << "Rebuilt" << term::reset << std::endl;
+                        }
+                        if (fs::exists(t.file->get_object_path()))
+                        {
+                            auto file_last_write = fs::last_write_time(t.file->get_object_path());
+                            if(file_last_write > last_write){
+                                last_write = file_last_write;
+                            }
+                        }
+                    }
+                }
+            }
+            finished = true;
+        };
+
+    auto start_task_handler = [&]()
+        {
+            for (size_t i = 0; i < tasks.size(); i++)
+            {
+                while (running >= NUM_THREAD)
+                {
+                    std::this_thread::sleep_for(0.1s);
+                }
+                task_mutex.lock();
+                running++;
+                auto& t = tasks.at(i);
+                t.result = std::async(std::launch::async, &CPPMaker::compile_object, this, std::ref(*t.file), std::ref(t.output));
+                task_mutex.unlock();
+            }
+        };
+
+    std::thread processing(handle_result);
+    std::thread starter(start_task_handler);
+    
+    starter.join();
+    processing.join();
+
+    for (auto& t : tasks)
+    {
+        if (t.status == Process::Result::Failed)
+        {
+            _output << term::red << t.file->get_file_path() << " Failed:" << term::reset << std::endl;
+            _output << t.output.str() << std::endl;
+        }
+        else if (_options.show_warning)
+        {
+            auto output = t.output.str();
+            if (output.size() > 0)
+            {
+                _output << term::yellow << t.file->get_file_path() << " has warning:" << term::reset << std::endl;
+                _output << output << std::endl;
+            }
+        }
+    }
+
+    return status;
 }
 
 Process::Result CPPMaker::compile_object(const file& file, std::stringstream& output)
@@ -370,7 +508,7 @@ bool CPPMaker::binary_requires_rebuild(fs::file_time_type last_write)
             auto lib_path = compute_path(_options.root_directory, path);
             for (auto lib : _config.libraries)
             {
-                fs::path full_path = fs::path(lib_path) / (lib + ".lib");
+                fs::path full_path = fs::path(lib_path) / ("lib" + lib + ".lib");
                 if (fs::exists(full_path))
                 {
                     auto file_last_write = fs::last_write_time(full_path);
@@ -430,10 +568,15 @@ Process::Result CPPMaker::link(std::stringstream& output)
 Process::Result CPPMaker::link_library(std::stringstream& output)
 {
     std::stringstream command;
-
+    auto lib_file = compute_path(_options.root_directory, _config.get_binary_path());
+    if (fs::exists(lib_file))
+    {
+        fs::remove(lib_file);
+    }
+    
     command << "ar rcs ";
     
-    command << "-o " << compute_path(_options.root_directory, _config.get_binary_path());
+    command << "-o " << lib_file;
     
     for (auto& f : _files)
     {
@@ -450,4 +593,40 @@ std::filesystem::path CPPMaker::get_pretty_path(std::filesystem::path path)
 {
     auto mismatch_pair = std::mismatch(path.begin(), path.end(), _options.root_directory.begin(), _options.root_directory.end());
     return mismatch_pair.second == _options.root_directory.end() ? fs::relative(path, _options.root_directory) : path;
+}
+
+void CPPMaker::export_dependency(const CPPMaker& target)
+{
+    // export libs 
+    auto lib_dir = compute_path(_options.root_directory, "lib");
+    if (fs::exists(lib_dir))
+    {
+        auto it = fs::directory_iterator(lib_dir);
+        auto target_lib_folder = compute_path(target._options.root_directory, "lib");
+        for (decltype(it) end; it != end; ++it)
+        {
+            auto target = target_lib_folder / it->path().filename();
+            if (!fs::exists(target))
+            {
+                fs::copy(*it, target);
+            }
+        }
+    }
+
+    // export includes
+    auto inc_dir = compute_path(_options.root_directory, "include");
+    if (fs::exists(inc_dir))
+    {
+        auto inc_it = fs::directory_iterator(inc_dir);
+        auto target_include_folder = compute_path(target._options.root_directory, "include");
+        for (decltype(inc_it) end; inc_it != end; ++inc_it)
+        {
+            auto target = target_include_folder / inc_it->path().filename();
+            if (!fs::exists(target_include_folder / inc_it->path().filename()))
+            {
+                fs::copy(*inc_it, target);
+            }
+        }
+    }
+        
 }
