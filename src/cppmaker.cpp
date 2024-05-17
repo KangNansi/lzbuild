@@ -332,7 +332,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
 {
     struct task
     {
-        file* file;
+        file* target_file;
         std::future<Process::Result> result;
         std::stringstream output;
         bool finished = false;
@@ -355,7 +355,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
                 status = BuildStatus::Changed;
 
                 task task;
-                task.file = &f;
+                task.target_file = &f;
                 tasks.push_back(std::move(task));
             }
             else if (_options.verbose)
@@ -385,7 +385,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
                         task_mutex.unlock();
                         finished_task++;
                         t.finished = true;
-                        _output << term::cyan << "Rebuilding " << t.file->get_file_path() << ": " << term::reset << std::flush;
+                        _output << term::cyan << "Rebuilding " << t.target_file->get_file_path() << ": " << term::reset << std::flush;
                         auto result = t.result.get();
                         t.status = result;
                         if (result == Process::Result::Failed)
@@ -397,9 +397,9 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
                         {
                             _output << term::green << "Rebuilt" << term::reset << std::endl;
                         }
-                        if (fs::exists(t.file->get_object_path()))
+                        if (fs::exists(t.target_file->get_object_path()))
                         {
-                            auto file_last_write = fs::last_write_time(t.file->get_object_path());
+                            auto file_last_write = fs::last_write_time(t.target_file->get_object_path());
                             if(file_last_write > last_write){
                                 last_write = file_last_write;
                             }
@@ -421,7 +421,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
                 task_mutex.lock();
                 running++;
                 auto& t = tasks.at(i);
-                t.result = std::async(std::launch::async, &CPPMaker::compile_object, this, std::ref(*t.file), std::ref(t.output));
+                t.result = std::async(std::launch::async, &CPPMaker::compile_object, this, std::ref(*t.target_file), std::ref(t.output));
                 task_mutex.unlock();
             }
         };
@@ -436,7 +436,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
     {
         if (t.status == Process::Result::Failed)
         {
-            _output << term::red << t.file->get_file_path() << " Failed:" << term::reset << std::endl;
+            _output << term::red << t.target_file->get_file_path() << " Failed:" << term::reset << std::endl;
             _output << t.output.str() << std::endl;
         }
         else if (_options.show_warning)
@@ -444,7 +444,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
             auto output = t.output.str();
             if (output.size() > 0)
             {
-                _output << term::yellow << t.file->get_file_path() << " has warning:" << term::reset << std::endl;
+                _output << term::yellow << t.target_file->get_file_path() << " has warning:" << term::reset << std::endl;
                 _output << output << std::endl;
             }
         }
