@@ -88,12 +88,12 @@ void dependency_tree::add(std::filesystem::path file, const std::vector<fs::path
         return;
     }
     auto abs_file = fs::absolute(file).lexically_normal();
-    if (_file_tree.find(abs_file) != _file_tree.end())
+    if (_file_tree.find(abs_file.string()) != _file_tree.end())
     {
         return;
     }
     auto dependencies = read_dependencies(abs_file, include_folders);
-    _file_tree.emplace(abs_file, dependencies);
+    _file_tree.emplace(abs_file.string(), dependencies);
     for (const auto& dep : dependencies)
     {
         add(dep, include_folders);
@@ -115,7 +115,7 @@ bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem
     }
     ignore.emplace(source);
 
-    auto it = _file_tree.find(source);
+    auto it = _file_tree.find(source.string());
     if (it != _file_tree.end())
     {
         for (auto& dep : it->second)

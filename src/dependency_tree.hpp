@@ -7,7 +7,7 @@
 
 class dependency_tree
 {
-    std::unordered_map<std::filesystem::path, std::vector<std::filesystem::path>> _file_tree;
+    std::unordered_map<std::string, std::vector<std::filesystem::path>> _file_tree;
 
 public:
     void add(std::filesystem::path file, const std::vector<std::filesystem::path>& include_folders);
