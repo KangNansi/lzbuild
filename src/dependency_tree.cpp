@@ -50,6 +50,7 @@ std::vector<fs::path> read_dependencies(fs::path path, const std::vector<fs::pat
 
             fs::path rel(include.value());
             rel = path.parent_path() / rel;
+            rel = fs::absolute(rel).lexically_normal();
 
             if(fs::exists(rel)){
                 dependencies.push_back(rel);
@@ -102,18 +103,18 @@ void dependency_tree::add(std::filesystem::path file, const std::vector<fs::path
 
 bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp)
 {
-    std::unordered_set<fs::path> ignore;
+    std::unordered_set<std::string> ignore;
     return need_rebuild(source, timestamp, ignore);
 }
 
-bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp, std::unordered_set<std::filesystem::path>& ignore)
+bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp, std::unordered_set<std::string>& ignore)
 {
     if (fs::last_write_time(source) > timestamp)
     {
         //std::cout << source << " changed" << std::endl;
         return true;
     }
-    ignore.emplace(source);
+    ignore.emplace(source.string());
 
     auto it = _file_tree.find(source.string());
     if (it != _file_tree.end())
@@ -124,7 +125,7 @@ bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem
             {
                 return true;
             }
-            ignore.emplace(dep);
+            ignore.emplace(dep.string());
         }
     }
     return false;

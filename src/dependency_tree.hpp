@@ -14,5 +14,5 @@ public:
     bool need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp);
 
 private:
-    bool need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp, std::unordered_set<std::filesystem::path>& ignore);
+    bool need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp, std::unordered_set<std::string>& ignore);
 };
