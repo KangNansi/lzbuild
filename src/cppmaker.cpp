@@ -233,7 +233,13 @@ void CPPMaker::export_header_files(std::filesystem::path target)
         {
             auto path = file.get_source_path();
             auto dest_path = target / _config.name / path;
-            if(fs::exists(dest_path)){
+            if (fs::exists(dest_path))
+            {
+                if (fs::last_write_time(dest_path) > fs::last_write_time(file.get_file_path()))
+                {
+                    // ignore if dest file is more recent than current file
+                    continue;
+                }
                 fs::remove(dest_path);
             }
             fs::create_directories(dest_path.parent_path());

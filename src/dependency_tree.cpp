@@ -108,6 +108,7 @@ bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem
 
 bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp, std::unordered_set<std::string>& ignore)
 {
+    //std::cout << "checking " << source << std::endl;
     source = fs::absolute(source).lexically_normal();
     if (ignore.contains(source.string()))
     {
@@ -126,7 +127,7 @@ bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem
     {
         for (auto& dep : it->second)
         {
-            if (!ignore.contains(dep.string()) && need_rebuild(dep, timestamp))
+            if (!ignore.contains(dep.string()) && need_rebuild(dep, timestamp, ignore))
             {
                 return true;
             }
