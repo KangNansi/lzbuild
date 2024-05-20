@@ -25,6 +25,7 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
     debug = args.has("--debug") || args.has("-g");
     output_command = args.has("--output-command");
     show_warning = args.has("--show-warning") || args.has("-sw");
+    print_dependencies = args.has("--print-dependencies");
     std::string arg_value;
     if (args.get("-c", arg_value))
     {
@@ -55,6 +56,11 @@ Process::Result CPPMaker::build()
     }
 
     build_file_registry();
+
+    if (_options.print_dependencies)
+    {
+        _dep_tree.print(_output);
+    }
 
     if (_options.dependencies_only)
     {
@@ -266,7 +272,6 @@ Process::Result CPPMaker::handle_dependencies()
         cppmaker_options options;
         options.root_directory = dependency_path;
         options.debug = _options.debug;
-        options.full_rebuild = _options.full_rebuild;
         std::stringstream ss;
         CPPMaker maker(options, ss);
         _output << term::blue << "Rebuilding " << maker.get_name() << ": " << term::reset;

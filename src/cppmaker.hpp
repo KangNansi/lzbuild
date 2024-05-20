@@ -21,6 +21,7 @@ struct cppmaker_options
     bool debug = true;
     bool output_command = false;
     bool show_warning = false;
+    bool print_dependencies = false;
     std::string config = "cppmaker.cfg";
     std::filesystem::path root_directory = std::filesystem::current_path();
 

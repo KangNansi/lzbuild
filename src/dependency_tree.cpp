@@ -47,7 +47,6 @@ std::vector<fs::path> read_dependencies(fs::path path, const std::vector<fs::pat
         // parse line
         if (auto include = read_include(line); include.has_value())
         {
-
             fs::path rel(include.value());
             rel = path.parent_path() / rel;
             rel = fs::absolute(rel).lexically_normal();
@@ -109,11 +108,13 @@ bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem
 
 bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem::file_time_type timestamp, std::unordered_set<std::string>& ignore)
 {
+    source = fs::absolute(source).lexically_normal();
     if (fs::last_write_time(source) > timestamp)
     {
         //std::cout << source << " changed" << std::endl;
         return true;
     }
+    //std::cout << "no change for " << source << std::endl;
     ignore.emplace(source.string());
 
     auto it = _file_tree.find(source.string());
@@ -128,5 +129,21 @@ bool dependency_tree::need_rebuild(std::filesystem::path source, std::filesystem
             ignore.emplace(dep.string());
         }
     }
+    else
+    {
+        //std::cout << "didnt find " << source << std::endl;
+    }
     return false;
+}
+
+void dependency_tree::print(std::ostream& output)
+{
+    for (auto& file : _file_tree)
+    {
+        output << file.first << std::endl;
+        for (auto& dep : file.second)
+        {
+            output << "\t" << dep << std::endl;
+        }
+    }
 }
