@@ -473,12 +473,20 @@ Process::Result CPPMaker::compile_object(const file& file, std::stringstream& ou
     }
 
     std::stringstream command;
-    command << _config.compiler << " ";
+    std::string compiler = _config.compiler;
+    if (compiler.compare("g++") == 0 && file.get_file_path().extension().string().compare(".c") == 0)
+    {
+        compiler = "gcc";
+    }
+    command << compiler << " ";
     if(_options.debug) command << "-g ";
     command << "-Wfatal-errors ";
     command << "-Wall -Wextra ";
     command << "-fdiagnostics-color=always ";
-    command << "-std=" << _config.standard << " ";
+    if (compiler.compare("gcc") != 0)
+    {
+        command << "-std=" << _config.standard << " ";
+    }
     command << "-o " << file.get_object_path() << " -c " << file.get_file_path();
 
     // includes
