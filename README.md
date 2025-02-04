@@ -16,3 +16,19 @@
 <b>-g --debug</b>: build in debug mode
 
 <b>--output-command</b>: output command
+
+# Configuration arguments
+
+<b>name</b>: export file name
+
+<b>include</b>: include folders
+
+<b>libraries</b>: library names
+
+<b>libpaths</b>: library paths
+
+<b>sources</b>: directories containing sources
+
+<b>exclude</b>: directory to exclude
+
+<b>dependency</b>: sub-project dependencies

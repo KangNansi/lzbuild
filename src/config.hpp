@@ -20,6 +20,7 @@ struct config{
     std::string link_etc;
     bool is_library = false;
     std::vector<std::string> dependencies;
+    size_t num_thread = 32;
 
     std::filesystem::path get_binary_dir() const{
         return "bin";

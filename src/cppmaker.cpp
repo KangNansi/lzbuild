@@ -5,6 +5,7 @@
 #include <queue>
 #include <future>
 #include <chrono>
+#include <thread>
 #include "term.hpp"
 #include "git.hpp"
 
@@ -377,7 +378,6 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
     }
 
     std::mutex task_mutex;
-    const int NUM_THREAD = 32;
     int running = 0;
     bool finished = false;
 
@@ -425,9 +425,9 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
         {
             for (size_t i = 0; i < tasks.size(); i++)
             {
-                while (running >= NUM_THREAD)
+                while (running >= _config.num_thread)
                 {
-                    std::this_thread::sleep_for(0.1s);
+                    std::this_thread::sleep_for(std::chrono::duration<double>(0.1s));
                 }
                 task_mutex.lock();
                 running++;

@@ -1,10 +1,12 @@
 #include "config.hpp"
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <map>
 #include <iostream>
 #include <stack>
 #include "expression.hpp"
+#include <cstdlib>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -47,6 +49,10 @@ struct config_creator : public lzlang::expr_visitor
     void _if(tokenizer::token condition, lzlang::expression& _true, lzlang::expression* _false)
     {
         if (match_platform(condition.value))
+        {
+            _true.visit(*this);
+        }
+        else if (std::getenv(condition.value.c_str()) != NULL)
         {
             _true.visit(*this);
         }
@@ -127,6 +133,7 @@ void read_config(config& config, std::filesystem::path path)
     if(get_value(value_map, "is_library", "false") == "true"){
         config.is_library = true;
     }
+    config.num_thread = std::stoi(get_value(value_map, "num_thread", "32"));
 #ifdef _WIN32
     auto bin_ext = ".exe";
     auto lib_ext = ".lib";
