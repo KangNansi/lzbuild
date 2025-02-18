@@ -3,3 +3,4 @@ obj/*
 bin
 bin/*
 .vscode
+.cache

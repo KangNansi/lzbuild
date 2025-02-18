@@ -8,9 +8,8 @@
 using namespace std;
 using uint = unsigned int;
 
-file::file(fs::path path, fs::path workspace_folder, fs::path source_path, dependency_context& ctx){
+file::file(fs::path path, fs::path object_path, fs::path source_path, dependency_context& ctx){
     this->path = path;
-    this->workspace_folder = workspace_folder;
     this->source_path = source_path;
 
     if(path.extension() == ".cpp" || path.extension() == ".c"){
@@ -21,9 +20,9 @@ file::file(fs::path path, fs::path workspace_folder, fs::path source_path, depen
     }
     
     if(type == FILE_TYPE::SOURCE){
-        fs::path relative_path = fs::relative(path, workspace_folder);
+        fs::path relative_path = fs::relative(path, object_path);
         relative_path.replace_extension(".o");
-        object_path = workspace_folder / "obj" / relative_path;
+        object_path = object_path / "obj" / relative_path;
     }
 
     last_write = fs::last_write_time(path);
@@ -95,16 +94,6 @@ void file::compute_dependencies(dependency_context& ctx){
         }
     }
     strm.close();
-}
-
-bool file::need_rebuild(const std::vector<file>& files) const{
-    if(!fs::exists(object_path)){
-        return true;
-    }
-
-    std::set<std::filesystem::path> checked;
-    auto obj_last_write = fs::last_write_time(object_path);
-    return rebuild_check(obj_last_write, files, checked);
 }
 
 bool file::rebuild_check(std::filesystem::file_time_type last_write, const std::vector<file>& files, std::set<fs::path>& checked) const{

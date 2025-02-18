@@ -41,11 +41,13 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
 CPPMaker::CPPMaker(const ArgReader& args) : _options(args)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
+    _obj_root = _options.root_directory / "obj" / fs::path(_options.config).stem();
 }
 
 CPPMaker::CPPMaker(const cppmaker_options& options, std::ostream& output) : _options(options), _output(output)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
+    _obj_root = _options.root_directory / "obj" / fs::path(_options.config).stem();
 }
 
 Process::Result CPPMaker::build()
@@ -181,7 +183,6 @@ void CPPMaker::build_file_registry()
     {
         ctx.include_folders.push_back(include_folder);
     }
-
     for (auto& src_folder : _config.source_folders)
     {
         auto root_folder = compute_path(_options.root_directory, src_folder);
@@ -199,6 +200,8 @@ void CPPMaker::build_file_registry()
             }
 
 
+            fs::path relative_path = fs::relative(*it, _options.root_directory);
+            relative_path.replace_extension(".o");
             _files.push_back(file(*it, _options.root_directory, fs::relative(*it, root_folder), ctx));
             if(_options.verbose){
                 _output << _files.back() << std::endl;
@@ -357,7 +360,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
     {
         if (f.get_type() == FILE_TYPE::SOURCE)
         {
-            auto obj_file_path = f.get_object_path();
+            auto obj_file_path = get_object_path(f);
             bool should_rebuild = _options.full_rebuild
                 || !fs::exists(obj_file_path)
                 || _dep_tree.need_rebuild(f.get_file_path(), fs::last_write_time(obj_file_path));
@@ -408,9 +411,10 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
                         {
                             _output << term::green << "Rebuilt" << term::reset << std::endl;
                         }
-                        if (fs::exists(t.target_file->get_object_path()))
+                        auto target_obj_file = get_object_path(*t.target_file);
+                        if (fs::exists(target_obj_file))
                         {
-                            auto file_last_write = fs::last_write_time(t.target_file->get_object_path());
+                            auto file_last_write = fs::last_write_time(target_obj_file);
                             if(file_last_write > last_write){
                                 last_write = file_last_write;
                             }
@@ -466,7 +470,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
 
 Process::Result CPPMaker::compile_object(const file& file, std::stringstream& output)
 {
-    auto object_path = file.get_object_path();
+    auto object_path = get_object_path(file);
     auto dir_path = object_path.remove_filename();
     fs::path directory;
     for(auto &dir : dir_path){
@@ -493,7 +497,7 @@ Process::Result CPPMaker::compile_object(const file& file, std::stringstream& ou
     {
         command << "-std=" << _config.standard << " ";
     }
-    command << "-o " << file.get_object_path() << " -c " << file.get_file_path();
+    command << "-o " << get_object_path(file) << " -c " << file.get_file_path();
 
     // includes
     for (auto& include : _config.include_folder)
@@ -562,7 +566,7 @@ Process::Result CPPMaker::link(std::stringstream& output)
     command << "-o " << binary_path;
     for(auto& f: _files){
         if(f.get_type() == FILE_TYPE::SOURCE){
-            command << " " << f.get_object_path();
+            command << " " << get_object_path(f);
         }
     }
 
@@ -600,7 +604,7 @@ Process::Result CPPMaker::link_library(std::stringstream& output)
     for (auto& f : _files)
     {
         if(f.get_type() == FILE_TYPE::SOURCE){
-            command << " " << f.get_object_path();
+            command << " " << get_object_path(f);
         }
     }
 
@@ -648,4 +652,9 @@ void CPPMaker::export_dependency(const CPPMaker& target)
         }
     }
         
+}
+
+std::filesystem::path CPPMaker::get_object_path(const file& file)
+{
+    return _obj_root / fs::relative(file.get_file_path(), _options.root_directory).replace_extension(".o");
 }

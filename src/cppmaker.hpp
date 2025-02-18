@@ -1,7 +1,9 @@
 #pragma once
+#include <filesystem>
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <unordered_map>
 #include "args.hpp"
 #include "file.hpp"
 #include "config.hpp"
@@ -44,6 +46,7 @@ private:
     std::vector<file> _files;
     std::ostream& _output = std::cout;
     dependency_tree _dep_tree;
+    std::filesystem::path _obj_root;
 
 public:
     CPPMaker(const ArgReader& args);
@@ -67,4 +70,5 @@ private:
     Process::Result link_library(std::stringstream& output);
     std::filesystem::path get_pretty_path(std::filesystem::path path);
     void export_dependency(const CPPMaker& target);
+    std::filesystem::path get_object_path(const file& file);
 };

@@ -1,0 +1,200 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/file.o",
+      "src/file.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/file.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/file.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/linux/cmd.o",
+      "src/linux/cmd.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/linux/cmd.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/linux/cmd.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/dependency_tree.o",
+      "src/dependency_tree.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/dependency_tree.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/dependency_tree.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/config.o",
+      "src/config.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/config.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/config.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/main.o",
+      "src/main.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/main.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/cppmaker.o",
+      "src/cppmaker.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/cppmaker.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/cppmaker.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/git.o",
+      "src/git.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/git.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/git.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/tokenizer/matcher.o",
+      "src/tokenizer/matcher.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/tokenizer/matcher.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/tokenizer/matcher.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/commands.o",
+      "src/commands.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/commands.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/commands.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/tokenizer/tokenizer.o",
+      "src/tokenizer/tokenizer.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/tokenizer/tokenizer.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/tokenizer/tokenizer.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wfatal-errors",
+      "-Wall",
+      "-Wextra",
+      "-fdiagnostics-color=always",
+      "-std=c++20",
+      "-c",
+      "-I./src",
+      "-o",
+      "/home/nans/projets/cppmaker/obj/cppmaker/src/expression.o",
+      "src/expression.cpp"
+    ],
+    "directory": "/home/nans/projets/cppmaker",
+    "file": "/home/nans/projets/cppmaker/src/expression.cpp",
+    "output": "/home/nans/projets/cppmaker/obj/cppmaker/src/expression.o"
+  }
+]
