@@ -44,6 +44,7 @@ private:
     cppmaker_options _options;
     config _config;
     std::vector<file> _files;
+    bool _header_only = true;
     std::ostream& _output = std::cout;
     dependency_tree _dep_tree;
     std::filesystem::path _obj_root;

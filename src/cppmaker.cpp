@@ -6,6 +6,7 @@
 #include <future>
 #include <chrono>
 #include <thread>
+#include "linux/cmd.hpp"
 #include "term.hpp"
 #include "git.hpp"
 
@@ -73,6 +74,11 @@ Process::Result CPPMaker::build()
     BuildStatus status = BuildStatus::NoChange;
     fs::file_time_type last_write = fs::file_time_type::min();
 
+    if (_header_only)
+    {
+        _output << "Header only library ready" << std::endl;
+        return Process::Result::Success;
+    }
 
     status = compile_project_async(last_write);
 
@@ -118,7 +124,10 @@ void CPPMaker::export_binary()
         return;
     }
     
-    export_binary(_config.executable_export_path);
+    if(!_header_only)
+    {
+        export_binary(_config.executable_export_path);
+    }
 
     if (_config.is_library)
     {
@@ -210,6 +219,7 @@ void CPPMaker::build_file_registry()
             if (file.get_type() == FILE_TYPE::SOURCE)
             {
                 _dep_tree.add(file.get_file_path(), ctx.include_folders);
+                _header_only = false;
             }
         }
     }
@@ -292,14 +302,20 @@ Process::Result CPPMaker::handle_dependencies()
             _output << term::green << "Rebuilt" << term::reset << std::endl;
             if (maker._config.is_library)
             {
-                auto libdir = compute_path(_options.root_directory, "lib");
-                fs::create_directories(libdir);
-                maker.export_binary(libdir);
+                if(!maker._header_only)
+                {
+                    auto libdir = compute_path(_options.root_directory, "lib");
+                    fs::create_directories(libdir);
+                    maker.export_binary(libdir);
+                }
                 auto includedir = compute_path(_options.root_directory, "include");
                 fs::create_directories(includedir);
                 maker.export_header_files(includedir);
                 library_added = true;
-                _config.libraries.push_back(maker.get_name());
+                if(!maker._header_only)
+                {
+                    _config.libraries.push_back(maker.get_name());
+                }
                 for (auto libs : maker._config.libraries)
                 {
                     auto it = std::find(_config.libraries.begin(), _config.libraries.end(), libs.c_str());
