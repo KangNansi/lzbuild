@@ -6,6 +6,7 @@
 #include <future>
 #include <chrono>
 #include <thread>
+#include "config.hpp"
 #include "linux/cmd.hpp"
 #include "term.hpp"
 #include "git.hpp"
@@ -547,7 +548,7 @@ bool CPPMaker::binary_requires_rebuild(fs::file_time_type last_write)
             auto lib_path = compute_path(_options.root_directory, path);
             for (auto lib : _config.libraries)
             {
-                fs::path full_path = fs::path(lib_path) / ("lib" + lib + ".lib");
+                fs::path full_path = fs::path(lib_path) / ("lib" + lib + LIB_EXT);
                 if (fs::exists(full_path))
                 {
                     auto file_last_write = fs::last_write_time(full_path);

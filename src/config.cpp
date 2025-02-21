@@ -134,14 +134,8 @@ void read_config(config& config, std::filesystem::path path)
         config.is_library = true;
     }
     config.num_thread = std::stoi(get_value(value_map, "num_thread", "32"));
-#ifdef _WIN32
-    auto bin_ext = ".exe";
-    auto lib_ext = ".lib";
-#else
-    auto bin_ext = "";
-    auto lib_ext = ".a";
-#endif
+
     
-    config.output_extension = get_value(value_map, "output_extension", config.is_library ? lib_ext: bin_ext);
+    config.output_extension = get_value(value_map, "output_extension", config.is_library ? LIB_EXT: BIN_EXT);
     config.link_etc = get_value(value_map, "link_etc", "");
 }

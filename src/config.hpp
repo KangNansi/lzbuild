@@ -4,6 +4,14 @@
 #include <vector>
 #include <iostream>
 
+#ifdef _WIN32
+    const auto BIN_EXT = ".exe";
+    const auto LIB_EXT = ".lib";
+#else
+    const auto BIN_EXT = "";
+    const auto LIB_EXT = ".a";
+#endif
+
 struct config{
     std::filesystem::path executable_export_path;
     std::filesystem::path include_export_path;
