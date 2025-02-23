@@ -277,10 +277,16 @@ Process::Result CPPMaker::handle_dependencies()
             auto repo_name = dependency_path.stem();
             auto target_path = compute_path(_options.root_directory, "dep") / repo_name;
             std::stringstream output;
-            if (fs::exists(target_path) && fs::exists(target_path / ".git") && _options.update_git)
+            if (fs::exists(target_path) && fs::exists(target_path / ".git"))
             {
-                _output << term::blue << repo_name.string() << ":" << term::reset << " updating git repository..." << std::endl;
-                git_update(target_path, output);
+                if(_options.update_git)
+                {
+                    _output << term::blue << repo_name.string() << ":" << term::reset << " updating git repository..." << std::endl;
+                    git_update(target_path, output);
+                }
+                else {
+                    _output << term::blue << repo_name.string() << ":" << term::reset << "skip updating git repository" << std::endl;
+                }
             }
             else
             {
