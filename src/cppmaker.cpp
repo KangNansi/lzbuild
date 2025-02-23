@@ -29,6 +29,7 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
     output_command = args.has("--output-command");
     show_warning = args.has("--show-warning") || args.has("-sw");
     print_dependencies = args.has("--print-dependencies");
+    update_git = args.has("-u") || args.has("--update-git");
     std::string arg_value;
     if (args.get("-c", arg_value))
     {
@@ -276,7 +277,7 @@ Process::Result CPPMaker::handle_dependencies()
             auto repo_name = dependency_path.stem();
             auto target_path = compute_path(_options.root_directory, "dep") / repo_name;
             std::stringstream output;
-            if (fs::exists(target_path) && fs::exists(target_path / ".git"))
+            if (fs::exists(target_path) && fs::exists(target_path / ".git") && _options.update_git)
             {
                 _output << term::blue << repo_name.string() << ":" << term::reset << " updating git repository..." << std::endl;
                 git_update(target_path, output);
@@ -293,6 +294,7 @@ Process::Result CPPMaker::handle_dependencies()
         cppmaker_options options;
         options.root_directory = dependency_path;
         options.debug = _options.debug;
+        options.update_git = _options.update_git;
         std::stringstream ss;
         CPPMaker maker(options, ss);
         _output << term::blue << "Rebuilding " << maker.get_name() << ": " << term::reset;

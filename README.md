@@ -17,6 +17,8 @@
 
 <b>--output-command</b>: output command
 
+<b>-u --update-git</b>: update git repository dependencies
+
 # Configuration arguments
 
 <b>name</b>: export file name
