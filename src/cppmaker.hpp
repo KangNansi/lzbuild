@@ -25,8 +25,11 @@ struct cppmaker_options
     bool show_warning = false;
     bool print_dependencies = false;
     bool update_git = false;
+    bool run_after_build = false;
+    bool export_after_build = false;
     std::string config = "cppmaker.cfg";
     std::filesystem::path root_directory = std::filesystem::current_path();
+    std::optional<std::filesystem::path> export_directory;
 
     cppmaker_options(){}
     cppmaker_options(const ArgReader& args);
@@ -59,11 +62,13 @@ public:
     void export_binary(std::filesystem::path target);
     void run();
     std::string get_name() { return _config.name; }
-
-private:
-    void build_file_registry();
+    bool is_library() { return _config.is_library; }
+    bool is_header_only() { return _header_only; }
     void export_header_files();
     void export_header_files(std::filesystem::path target);
+    void build_file_registry();
+
+private:
     Process::Result handle_dependencies();
     BuildStatus compile_project_async(fs::file_time_type& last_write);
     Process::Result compile_object(const file& file, std::stringstream& output);

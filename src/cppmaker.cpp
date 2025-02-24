@@ -30,6 +30,8 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
     show_warning = args.has("--show-warning") || args.has("-sw");
     print_dependencies = args.has("--print-dependencies");
     update_git = args.has("-u") || args.has("--update-git");
+    run_after_build = args.has("-r");
+    export_after_build = args.has("-e");
     std::string arg_value;
     if (args.get("-c", arg_value))
     {
@@ -38,6 +40,10 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
             throw "Could not find config " + arg_value;
         }
         config = arg_value;
+    }
+    if(args.get("--export-dir", arg_value))
+    {
+        export_directory = arg_value;
     }
 }
 

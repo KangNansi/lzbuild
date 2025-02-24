@@ -19,6 +19,10 @@
 
 <b>-u --update-git</b>: update git repository dependencies
 
+# Commands
+
+<b>install [repository]</b>: install the target repository to system
+
 # Configuration arguments
 
 <b>name</b>: export file name
