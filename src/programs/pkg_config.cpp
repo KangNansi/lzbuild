@@ -44,13 +44,17 @@ library_config pkg_config::get_config(std::string name)
     std::stringstream output;
     if(run_cmd(name, cmd_type::cflags, output) == Process::Result::Failed)
     {
-        throw std::runtime_error("Failed to retrieve library --cflags info from pkg-config");
+        name = "lib" + name;
+        if(run_cmd(name, cmd_type::cflags, output) == Process::Result::Failed)
+        {
+            return config;
+        }
     }
     config.cflags = parse_arguments(output);
     output.clear();
     if(run_cmd(name, cmd_type::libs, output) == Process::Result::Failed)
     {
-        throw std::runtime_error("Failed to retrieve library --libs info from pkg-config");
+        return config;
     }
     config.lib_flags = parse_arguments(output);
 
