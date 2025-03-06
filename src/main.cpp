@@ -8,6 +8,7 @@
 #include "utility/args.hpp"
 #include "commands.hpp"
 #include "project.hpp"
+#include <fstream>
 
 namespace fs = std::filesystem;
 using namespace std;
@@ -54,6 +55,19 @@ int main(int argc, char** argv)
                 build_options options(args);
                 project maker(options);
                 return maker.build() == Process::Result::Failed ? -1 : 0;
+            }},
+            {"script", [&]() {
+                if(argc != 3) {
+                    std::cout << "Usage: " << argv[0] << " script <output_file>" << std::endl;
+                    return 1;
+                }
+                auto output = argv[2];
+                std::ofstream file(output);
+                ArgReader args(argc, argv);
+                build_options options(args);
+                project maker(options);
+                file << maker.get_build_commands();
+                return 0;
             }},
         };
 

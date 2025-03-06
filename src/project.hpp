@@ -56,13 +56,16 @@ public:
     bool is_header_only() { return _header_only; }
     void export_header_files(std::filesystem::path target);
     void build_file_registry();
+    std::string get_build_commands();
 
 private:
     BuildStatus compile_project_async(fs::file_time_type& last_write);
     Process::Result compile_object(const file& file, std::stringstream& output);
+    std::string get_object_compilation_command(const file& file);
     bool binary_requires_rebuild(fs::file_time_type last_write);
     Process::Result link(std::stringstream& output);
     Process::Result link_library(std::stringstream& output);
+    std::string get_link_command(std::string output);
     std::filesystem::path get_pretty_path(std::filesystem::path path);
     std::filesystem::path get_object_path(const file& file);
 };

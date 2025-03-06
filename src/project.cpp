@@ -5,9 +5,12 @@
 #include <queue>
 #include <future>
 #include <chrono>
+#include <sstream>
 #include <stdexcept>
 #include <thread>
 #include "config.hpp"
+#include "file.hpp"
+#include "utility/cmd.hpp"
 #include "utility/term.hpp"
 #include "programs/git.hpp"
 
@@ -47,17 +50,18 @@ project::project(const ArgReader& args) : _options(args)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
     _obj_root = _options.root_directory / "obj" / fs::path(_options.config).stem();
+    build_file_registry();
 }
 
 project::project(const build_options& options, std::ostream& output) : _options(options), _output(output)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
     _obj_root = _options.root_directory / "obj" / fs::path(_options.config).stem();
+    build_file_registry();
 }
 
 Process::Result project::build()
 {
-    build_file_registry();
 
     if (_options.print_dependencies)
     {
@@ -88,25 +92,19 @@ Process::Result project::build()
         return Process::Result::Success;
     }
 
-    if(!_config.is_library){
-        _output << "Creating executable..." << std::endl;
-        std::stringstream link_output;
-        if(link(link_output) == Process::Result::Failed){
-            std::cerr << term::red << "Error creating executable" << term::reset << std::endl;
-            _output << link_output.str() << std::flush;
-            return Process::Result::Failed;
-        }
+    _output << "Creating " << (is_library() ? "library" : "executable") << "..." << std::endl;
+    
+    auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
+    auto cmd = get_link_command(binary_path);
+    
+    if(_options.output_command) _output << cmd << std::endl;
+    std::stringstream output;
+    if(Process::Run(cmd.c_str(), output) == Process::Result::Failed)
+    {
+        std::cerr << term::red << "Error creating binary" << term::reset << std::endl;
+        _output << output.str() << std::flush;
+        return Process::Result::Failed;
     }
-    else{
-        _output << "Creating library..." << std::endl;
-        std::stringstream lib_output;
-        if(link_library(lib_output) == Process::Result::Failed){
-            std::cerr << term::red << "Error creating library" << term::reset << std::endl;
-            _output << lib_output.str() << std::flush;
-            return Process::Result::Failed;
-        }
-    }
-
     return Process::Result::Success;
 }
 
@@ -184,6 +182,25 @@ void project::build_file_registry()
     }
 }
 
+std::string project::get_build_commands()
+{
+    std::stringstream ss;
+    for(auto& file: _files)
+    {
+        if(file.get_type() == FILE_TYPE::SOURCE)
+        {
+            auto cmd = get_object_compilation_command(file);
+            ss << "echo \"" << cmd << "\"" << std::endl;
+            ss << cmd << std::endl;
+        }
+    }
+    auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
+    auto cmd = get_link_command(binary_path);
+    ss << "echo \"" << cmd << "\"" << std::endl;
+    ss << cmd << std::endl;
+    return ss.str();
+}
+
 void project::export_header_files(std::filesystem::path target)
 {
     fs::create_directories(target);
@@ -247,7 +264,7 @@ BuildStatus project::compile_project_async(fs::file_time_type& last_write)
     }
 
     std::mutex task_mutex;
-    int running = 0;
+    size_t running = 0;
     bool finished = false;
 
     auto handle_result = [&]()
@@ -348,6 +365,14 @@ Process::Result project::compile_object(const file& file, std::stringstream& out
         }
     }
 
+    std::string cmd = get_object_compilation_command(file);
+
+    if (_options.output_command) _output << std::endl << cmd << std::endl;
+    return Process::Run(cmd.c_str(), output);
+}
+
+std::string project::get_object_compilation_command(const file& file)
+{
     std::stringstream command;
     std::string compiler = _config.compiler;
     if (compiler.compare("g++") == 0 && file.get_file_path().extension().string().compare(".c") == 0)
@@ -384,9 +409,7 @@ Process::Result project::compile_object(const file& file, std::stringstream& out
             command << " " << cflag;
         }
     }
-
-    if (_options.output_command) _output << std::endl << command.str() << std::endl;
-    return Process::Run(command.str().c_str(), output);
+    return command.str();
 }
 
 bool project::binary_requires_rebuild(fs::file_time_type last_write)
@@ -500,6 +523,66 @@ Process::Result project::link_library(std::stringstream& output)
 
     if (_options.output_command) _output << command.str() << std::endl;
     return Process::Run(command.str().c_str(), output);
+}
+
+std::string project::get_link_command(std::string output)
+{
+    std::stringstream command;
+
+    if(is_library())
+    {
+        command << "ar rcs ";
+    
+        command << "-o " << output;
+        
+        for (auto& f : _files)
+        {
+            if(f.get_type() == FILE_TYPE::SOURCE){
+                command << " " << get_object_path(f);
+            }
+        }
+    }
+    else
+    {
+        command << _config.compiler << " ";
+        if(_options.debug) command << "-g ";
+        command << "-Wfatal-errors ";
+        command << "-Wall -Wextra ";
+        command << "-fdiagnostics-color=always ";
+        command << "-std=" << _config.standard << " ";
+
+        auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
+        command << "-o " << binary_path;
+        for(auto& f: _files){
+            if(f.get_type() == FILE_TYPE::SOURCE){
+                command << " " << get_object_path(f);
+            }
+        }
+
+        for (auto& libpath : _config.library_paths)
+        {
+            auto path = compute_path(_options.root_directory, libpath);
+            command << " -L" << path;
+        }
+
+        for(auto& lib: _config.libraries){
+            auto lib_config = lib.config;
+            for(auto& cflag: lib_config.cflags){
+                command << " " << cflag;
+            }
+            for(auto& lib: lib_config.lib_flags){
+                command << " " << lib;
+            }
+        }
+
+        if(_config.link_etc.size() > 0){
+            for(auto& etc: _config.link_etc)
+            {
+                command << " " << etc;
+            }
+        }
+    }
+    return command.str();
 }
 
 std::filesystem::path project::get_pretty_path(std::filesystem::path path)

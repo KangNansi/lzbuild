@@ -92,7 +92,7 @@ bool export_project()
         }
         return true;
     }
-    catch(std::filesystem::filesystem_error error)
+    catch(std::filesystem::filesystem_error& error)
     {
         std::cout << term::red << "Failed to export files: " << term::reset << error.what() << std::endl;
         return false;
