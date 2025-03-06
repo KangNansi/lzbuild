@@ -45,12 +45,13 @@ library_config pkg_config::get_config(std::string name)
     if(run_cmd(name, cmd_type::cflags, output) == Process::Result::Failed)
     {
         output = std::stringstream();
-        name = "lib" + name;
-        if(run_cmd(name, cmd_type::cflags, output) == Process::Result::Failed)
+        std::string prefixed_name = "lib" + name;
+        if(run_cmd(prefixed_name, cmd_type::cflags, output) == Process::Result::Failed)
         {
             config.lib_flags.push_back("-l" + name);
             return config;
         }
+        name = prefixed_name;
     }
     config.cflags = parse_arguments(output);
     output = std::stringstream();
