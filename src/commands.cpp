@@ -78,18 +78,18 @@ bool export_project()
         build_options sub_options;
         project maker(sub_options);
         maker.build_file_registry();
-        if(!maker.is_header_only())
+        if(maker.is_library())
         {
-            if(maker.is_library())
+            maker.export_header_files("/usr/local/include");
+            if(!maker.is_header_only())
             {
-                maker.export_header_files("/usr/local/include");
                 maker.export_binary("/usr/local/lib");
-                // TODO: create pkg-config file into /usr/local/lib/pkgconfig
             }
-            else
-            {
-                maker.export_binary("/usr/local/bin");
-            }
+            // TODO: create pkg-config file into /usr/local/lib/pkgconfig
+        }
+        else
+        {
+            maker.export_binary("/usr/local/bin");
         }
         return true;
     }
