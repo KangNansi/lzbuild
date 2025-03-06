@@ -1,1 +1,0 @@
-g++ -g -std=c++20 -o bin/cppmaker.exe src/main.cpp src/cmd.cpp src/file.cpp src/config.cpp

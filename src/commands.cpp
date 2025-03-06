@@ -2,25 +2,26 @@
 #include "utility/term.hpp"
 #include "programs/git.hpp"
 #include "project.hpp"
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
 namespace fs = std::filesystem;
 
+const fs::path APP_DATA = std::string(std::getenv("HOME")) + "/.lzbuild";
+
 void init(std::filesystem::path path) {
     fs::create_directory(path / "src");
     fs::create_directory(path / "bin");
     fs::create_directory(path / "obj");
-    std::ofstream config(path / "cppmaker.cfg");
+    std::ofstream config(path / "default.lzb");
 }
-
 
 bool install(std::filesystem::path repository, std::filesystem::path self_cmd)
 {
     if(repository.extension() == ".git")
     {
-        std::filesystem::path data_dir(getenv("HOME"));
-        data_dir /= ".cppmaker/cache";
+        auto data_dir = APP_DATA / "cache";
         std::string repo_name = fs::path(repository).stem();
         data_dir /= repo_name;
         if(fs::exists(data_dir) && fs::exists(data_dir / ".git"))
