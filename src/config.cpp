@@ -102,11 +102,6 @@ void read_config(config& config, std::filesystem::path path)
     auto tokens = engine.tokenize(text);
     auto ctx = tokenizer::parse_context<token_type>(text, tokens);
 
-    for(auto& token: tokens)
-    {
-        std::cout << token.str() << std::endl;
-    }
-
     std::unordered_map<keywords, std::function<void()>> kw_parsers = {
         {keywords::lib, [&]() {
             auto libs = read_name_list(ctx);
