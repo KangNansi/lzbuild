@@ -3,7 +3,7 @@
 
 namespace tokenizer {
 
-    bool char_node::match(const std::string& source, size_t& pos) const
+    bool char_node::match(std::string_view source, size_t& pos) const
     {
         if(pos < source.size() && source[pos] == c){
             pos++;
@@ -12,7 +12,7 @@ namespace tokenizer {
         return false;
     }
     
-    bool range_node::match(const std::string& source, size_t& pos) const {
+    bool range_node::match(std::string_view source, size_t& pos) const {
         if (pos >= source.size())
         {
             return false;
@@ -26,7 +26,7 @@ namespace tokenizer {
         return false;
     }
     
-    bool or_node::match(const std::string& source, size_t& pos) const {
+    bool or_node::match(std::string_view source, size_t& pos) const {
         for(auto& sub_node : selection){
             size_t sub_pos = pos;
             if(sub_node->match(source, sub_pos)){
@@ -37,17 +37,17 @@ namespace tokenizer {
         return false;
     }
     
-    bool repeat_node::match(const std::string& source, size_t& pos) const {
+    bool repeat_node::match(std::string_view source, size_t& pos) const {
         while (to_repeat->match(source, pos));
         return true;
     }
 
-    bool option_node::match(const std::string& source, size_t& pos) const {
+    bool option_node::match(std::string_view source, size_t& pos) const {
         option->match(source, pos);
         return true;
     }
     
-    bool group_node::match(const std::string& source, size_t& pos) const {
+    bool group_node::match(std::string_view source, size_t& pos) const {
         for (auto& sub_node : nodes)
         {
             if(!sub_node->match(source, pos)){

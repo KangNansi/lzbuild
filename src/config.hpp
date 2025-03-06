@@ -1,4 +1,5 @@
 #pragma once
+#include "programs/pkg_config.hpp"
 #include <string>
 #include <filesystem>
 #include <vector>
@@ -12,35 +13,41 @@
     const auto LIB_EXT = ".a";
 #endif
 
-struct config{
-    std::filesystem::path executable_export_path;
-    std::filesystem::path include_export_path;
+enum class library_link_type
+{
+    _static,
+    shared
+};
+
+struct library_dependency
+{
     std::string name;
+    pkg_config::library_config config;
+};
+
+struct config{
+    std::string name = "result";
     std::string cflags;
-    std::string compiler;
-    std::string standard;
-    std::string output_extension;
+    std::string compiler = "g++";
+    std::string standard = "c++20";
     std::vector<std::string> include_folder;
-    std::vector<std::string> libraries;
+    std::vector<library_dependency> libraries;
     std::vector<std::string> library_paths;
     std::vector<std::string> source_folders;
     std::vector<std::string> exclude;
-    std::string link_etc;
+    std::vector<std::string> link_etc;
     bool is_library = false;
-    std::vector<std::string> dependencies;
     size_t num_thread = 32;
 
-    std::filesystem::path get_binary_dir() const{
-        return "bin";
-    }
     std::filesystem::path get_binary_path() const
     {
         if (is_library)
         {
-            return get_binary_dir() / ("lib" + name + output_extension);
+            return std::filesystem::path("bin") / ("lib" + name + LIB_EXT);
         }
-        return get_binary_dir() / (name + output_extension);
+        return std::filesystem::path("bin") / (name + BIN_EXT);
     }
+
     bool is_excluded(std::filesystem::path path) const
     {
         for (size_t i = 0; i < exclude.size(); i++)

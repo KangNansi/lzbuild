@@ -1,141 +1,180 @@
 #include "config.hpp"
+#include "programs/pkg_config.hpp"
+#include "utility/term.hpp"
+#include "tokenizer/tokenizer.hpp"
+#include "tokenizer/extensions.hpp"
+#include <algorithm>
 #include <fstream>
-#include <iterator>
 #include <sstream>
-#include <map>
 #include <iostream>
-#include <stack>
-#include "expression.hpp"
 #include <cstdlib>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <functional>
 
 using namespace std;
-namespace fs = std::filesystem;
 
-struct kvp{
-    std::string key;
-    std::string value;
+enum class token_type
+{
+    keyword,
+    syntax,
+    name,
+    number,
+    string_literal,
+    comment,
 };
 
-
-bool match_platform(std::string platform)
+enum class keywords 
 {
-#ifdef _WIN32
-    return platform == "_WIN32";
-#elif __linux__
-    return platform == "__linux__";
-#else
-    return false;
-#endif
-}
-
-struct config_creator : public lzlang::expr_visitor
-{
-    map<std::string, std::string>& _ctx;
-
-    config_creator(map<std::string, std::string>& ctx) : _ctx(ctx) {}
-
-    void assign(tokenizer::token name, tokenizer::token value)
-    {
-        auto it = _ctx.find(name.value);
-        if (it != _ctx.end())
-        {
-            _ctx[name.value] = it->second + ";" + value.value.substr(1, value.value.size() - 2);
-        }
-        else
-        {
-            _ctx[name.value] = value.value.substr(1, value.value.size() - 2);
-        }
-    }
-    void _if(tokenizer::token condition, lzlang::expression& _true, lzlang::expression* _false)
-    {
-        if (match_platform(condition.value))
-        {
-            _true.visit(*this);
-        }
-        else if (std::getenv(condition.value.c_str()) != NULL)
-        {
-            _true.visit(*this);
-        }
-        else if(_false != nullptr)
-        {
-            _false->visit(*this);
-        }
-    }
+    name,
+    output,
+    include,
+    lib,
+    link_etc,
+    source,
+    compiler,
+    standard,
 };
 
-void parse(ifstream& file, map<string, string>& result){
-    stringstream ss;
-    ss << file.rdbuf();
-    string text = ss.str();
+std::unordered_map<std::string, keywords> keywords_values = {
+    {"name", keywords::name},
+    {"output", keywords::output},
+    {"include", keywords::include},
+    {"lib", keywords::lib},
+    {"link_etc", keywords::link_etc},
+    {"source", keywords::source},
+    {"compiler", keywords::compiler},
+    {"standard", keywords::standard},
+};
+std::vector<std::string> keywords_keys = ([]() {
+    std::vector<string> keys(keywords_values.size());
+    std::transform(keywords_values.begin(), keywords_values.end(), keys.begin(), [](auto pair) { return pair.first; });
+    return keys;
+})();
 
-    auto expr = lzlang::parse(text);
-    config_creator creator(result);
-    expr->visit(creator);
+tokenizer::engine<token_type> create_tokenizer_engine()
+{
+    tokenizer::engine<token_type> engine;
+    engine.add<token_type::keyword, tokenizer::keyword_matcher>(keywords_keys);
+    engine.add<token_type::syntax>("[\n]");
+    engine.add<token_type::name>("[@_][@_#+-]*");
+    engine.add<token_type::comment, tokenizer::line_comment_matcher, true>("#");
+    engine.add<token_type::string_literal, tokenizer::string_literal_matcher>();
+    return engine;
 }
 
-const string get_value(const map<string, string>& map, const string& key, const string& default_value){
-    auto it = map.find(key);
-    if(it != map.end()){
-        return (*it).second;
-    }
-    else{
-        return default_value;
-    }
+std::string read_str(const tokenizer::token<token_type>& token)
+{
+    if(token.type == token_type::string_literal) return token.value.substr(1, token.value.size()-2);
+    else return token.value;
 }
 
-void get_values(const map<string, string>& map, const string& key, vector<string> &target){
-    auto it = map.find(key);
-    if(it != map.end()){
-        auto& val = (*it).second;
-        int start = 0;
-        for(size_t i = 0; i <= val.length(); i++){
-            if(i == val.length() || val[i] == ';'){
-                target.push_back(val.substr(start, i - start));
-                start = i+1;
-            }
-        }
+std::string read_name(tokenizer::parse_context<token_type>& ctx)
+{
+    auto token = ctx.advance();
+    if(token.match<token_type::string_literal>() || token.match<token_type::name>())
+    {
+        return read_str(token);
     }
+    throw std::runtime_error("unexpected token" + token.str());
+}
+
+std::vector<std::string> read_name_list(tokenizer::parse_context<token_type>& ctx)
+{
+    std::vector<std::string> values;
+    while(ctx.match<token_type::string_literal>() || ctx.match<token_type::name>())
+    {
+        values.push_back(read_name(ctx));
+    }
+    return values;
 }
 
 void read_config(config& config, std::filesystem::path path)
 {
-    map<string, string> value_map;
-    if(fs::exists(path)){
-        ifstream file(path);
-        try{
-            parse(file, value_map);
+    std::ifstream file(path);
+    stringstream ss;
+    ss << file.rdbuf();
+    string text = ss.str();
+
+    auto engine = create_tokenizer_engine();
+    auto tokens = engine.tokenize(text);
+    auto ctx = tokenizer::parse_context<token_type>(text, tokens);
+
+    std::unordered_map<keywords, std::function<void()>> kw_parsers = {
+        {keywords::lib, [&]() {
+            auto libs = read_name_list(ctx);
+            for(auto& lib: libs) config.libraries.push_back({
+                .name = lib,
+                .config = pkg_config::get_config(lib)
+            });
+        }},
+        {keywords::name, [&]() {
+            config.name = read_name(ctx);
+        }},
+        {keywords::include, [&]() {
+            auto includes = read_name_list(ctx);
+            config.include_folder.insert(config.include_folder.end(), includes.begin(), includes.end());
+        }},
+        {keywords::link_etc, [&]() {
+            auto link_etc = read_name_list(ctx);
+            config.link_etc.insert(config.link_etc.end(), link_etc.begin(), link_etc.end());
+        }},
+        {keywords::output, [&]() {
+            auto token = ctx.advance();
+            if(token.match<token_type::name>("library")) {
+                config.is_library = true;
+            }
+            else if (token.match<token_type::name>("binary")) {
+                config.is_library = false;
+            }
+            else {
+                throw std::runtime_error("Invalid output value(library|binary): " + token.str());
+            }
+        }},
+        {keywords::source, [&]() {
+            auto sources = read_name_list(ctx);
+            config.source_folders.insert(config.source_folders.end(), sources.begin(), sources.end());
+        }},
+        {keywords::compiler, [&]() {
+            config.compiler = read_name(ctx);
+        }},
+        {keywords::standard, [&]() {
+            config.standard = read_name(ctx);
+        }},
+    };
+
+    while (!ctx.eof()) {
+        auto token = ctx.advance();
+        switch (token.type) {
+        case token_type::keyword:
+            if(auto keyword_it = keywords_values.find(token.value); keyword_it != keywords_values.end())
+            {
+                if(auto parser_it = kw_parsers.find(keyword_it->second); parser_it != kw_parsers.end())
+                {
+                    parser_it->second();
+                    break;
+                }
+            }
+            throw std::runtime_error("unexpected keyword " + token.str());
+        case token_type::syntax:
+            break;
+        case token_type::name:
+        case token_type::number:
+        case token_type::string_literal:
+        case token_type::comment:
+            std::cerr << term::red << "Invalid token: " << term::reset << token.str() << std::endl;
+            while (!ctx.eof() && !ctx.match<token_type::syntax>("\n"))
+            {
+                ctx.advance();
+            }
+          break;
         }
-        catch(exception& exception){
-            cerr << exception.what() << endl;
-        }
-        catch(const char* exception){
-            cerr << exception << endl;
-        }
-        file.close();
     }
 
-    config.executable_export_path = get_value(value_map, "export_path", "");
-    config.include_export_path = get_value(value_map, "include_export_path", "");
-    config.name = get_value(value_map, "name", "result");
-    config.compiler = get_value(value_map, "compiler", "g++");
-    config.standard = get_value(value_map, "std", "c++20");
-    config.cflags = get_value(value_map, "cflags", "");
-    get_values(value_map, "include", config.include_folder);
-    get_values(value_map, "libraries", config.libraries);
-    get_values(value_map, "libpaths", config.library_paths);
-    get_values(value_map, "sources", config.source_folders);
-    get_values(value_map, "exclude", config.exclude);
-    get_values(value_map, "dependency", config.dependencies);
-    if (config.source_folders.size() == 0)
+    if(config.source_folders.empty())
     {
-        config.source_folders.push_back("src");
+        config.source_folders.push_back("./src");
     }
-    if(get_value(value_map, "is_library", "false") == "true"){
-        config.is_library = true;
-    }
-    config.num_thread = std::stoi(get_value(value_map, "num_thread", "32"));
-
-    
-    config.output_extension = get_value(value_map, "output_extension", config.is_library ? LIB_EXT: BIN_EXT);
-    config.link_etc = get_value(value_map, "link_etc", "");
 }

@@ -1,15 +1,15 @@
-#include "cppmaker.hpp"
+#include "project.hpp"
 #include <filesystem>
 #include <iostream>
 #include <algorithm>
 #include <queue>
 #include <future>
 #include <chrono>
+#include <stdexcept>
 #include <thread>
 #include "config.hpp"
-#include "linux/cmd.hpp"
-#include "term.hpp"
-#include "git.hpp"
+#include "utility/term.hpp"
+#include "programs/git.hpp"
 
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
@@ -19,19 +19,15 @@ fs::path compute_path(fs::path root, fs::path target)
     return target.is_absolute() ? target : root / target;
 }
 
-cppmaker_options::cppmaker_options(const ArgReader& args)
+build_options::build_options(const ArgReader& args)
 {
     verbose = args.has("-v");
-    dependencies_only = args.has("-d");
     full_rebuild = args.has("-fr");
     force_linking = args.has("-fl");
     debug = args.has("--debug") || args.has("-g");
     output_command = args.has("--output-command");
     show_warning = args.has("--show-warning") || args.has("-sw");
     print_dependencies = args.has("--print-dependencies");
-    update_git = args.has("-u") || args.has("--update-git");
-    run_after_build = args.has("-r");
-    export_after_build = args.has("-e");
     std::string arg_value;
     if (args.get("-c", arg_value))
     {
@@ -47,37 +43,27 @@ cppmaker_options::cppmaker_options(const ArgReader& args)
     }
 }
 
-CPPMaker::CPPMaker(const ArgReader& args) : _options(args)
+project::project(const ArgReader& args) : _options(args)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
     _obj_root = _options.root_directory / "obj" / fs::path(_options.config).stem();
 }
 
-CPPMaker::CPPMaker(const cppmaker_options& options, std::ostream& output) : _options(options), _output(output)
+project::project(const build_options& options, std::ostream& output) : _options(options), _output(output)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
     _obj_root = _options.root_directory / "obj" / fs::path(_options.config).stem();
 }
 
-Process::Result CPPMaker::build()
+Process::Result project::build()
 {
-    if (handle_dependencies() == Process::Result::Failed)
-    {
-        _output << term::red << "Failed to build dependencies" << term::reset << std::endl;
-        return Process::Result::Failed;
-    }
-
     build_file_registry();
 
     if (_options.print_dependencies)
     {
         _dep_tree.print(_output);
-    }
-
-    if (_options.dependencies_only)
-    {
         return Process::Result::Success;
-    } 
+    }
 
     BuildStatus status = BuildStatus::NoChange;
     fs::file_time_type last_write = fs::file_time_type::min();
@@ -124,26 +110,7 @@ Process::Result CPPMaker::build()
     return Process::Result::Success;
 }
 
-void CPPMaker::export_binary()
-{
-    if (_config.executable_export_path.empty())
-    {
-        std::cerr << term::red << "No binary export path specified" << term::reset << std::endl;
-        return;
-    }
-    
-    if(!_header_only)
-    {
-        export_binary(_config.executable_export_path);
-    }
-
-    if (_config.is_library)
-    {
-        export_header_files();
-    }
-}
-
-void CPPMaker::export_binary(std::filesystem::path target)
+void project::export_binary(std::filesystem::path target)
 {
     auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
     fs::create_directories(target);
@@ -167,23 +134,7 @@ void CPPMaker::export_binary(std::filesystem::path target)
     }
 }
 
-void CPPMaker::run()
-{
-    _output << "Running executable" << std::endl;
-
-    try
-    {
-        Process::Run(_config.get_binary_path().string().c_str(), _output);
-    }
-    catch(const std::string& error){
-        std::cerr << term::red << error << term::reset << std::endl;
-    }
-    catch(const char* error){
-        std::cerr << term::red << error << term::reset << std::endl;
-    }
-}
-
-void CPPMaker::build_file_registry()
+void project::build_file_registry()
 {
     _files.clear();
     fs::path obj_dir(_options.root_directory / "obj");
@@ -233,20 +184,7 @@ void CPPMaker::build_file_registry()
     }
 }
 
-void CPPMaker::export_header_files()
-{
-    if (_config.include_export_path.empty())
-    {
-        std::cerr << term::red << "No include export path given" << term::reset << std::endl;
-    }
-    else
-    {
-        auto export_path = compute_path(_options.root_directory, _config.include_export_path);
-        export_header_files(export_path);
-    }
-}
-
-void CPPMaker::export_header_files(std::filesystem::path target)
+void project::export_header_files(std::filesystem::path target)
 {
     fs::create_directories(target);
     for (auto& file : _files)
@@ -271,110 +209,7 @@ void CPPMaker::export_header_files(std::filesystem::path target)
     }
 }
 
-Process::Result CPPMaker::handle_dependencies()
-{
-    bool library_added = false;
-
-    for (auto dependency : _config.dependencies)
-    {
-        fs::path dependency_path(dependency);
-        if (dependency_path.extension().compare(".git") == 0)
-        {
-            auto repo_name = dependency_path.stem();
-            auto target_path = compute_path(_options.root_directory, "dep") / repo_name;
-            std::stringstream output;
-            if (fs::exists(target_path) && fs::exists(target_path / ".git"))
-            {
-                if(_options.update_git)
-                {
-                    _output << term::blue << repo_name.string() << ":" << term::reset << " updating git repository..." << std::endl;
-                    git_update(target_path, output);
-                }
-                else {
-                    _output << term::blue << repo_name.string() << ":" << term::reset << "skip updating git repository" << std::endl;
-                }
-            }
-            else
-            {
-                _output << term::blue << repo_name.string() << ":" << term::reset << " cloning git repository" << std::endl;
-                fs::create_directories(target_path);
-                git_clone(target_path, dependency, output);
-            }
-            dependency_path = target_path;
-        }
-
-        cppmaker_options options;
-        options.root_directory = dependency_path;
-        options.debug = _options.debug;
-        options.update_git = _options.update_git;
-        std::stringstream ss;
-        CPPMaker maker(options, ss);
-        _output << term::blue << "Rebuilding " << maker.get_name() << ": " << term::reset;
-        switch (maker.build())
-        {
-        case Process::Result::Success:
-        {
-            _output << term::green << "Rebuilt" << term::reset << std::endl;
-            if (maker._config.is_library)
-            {
-                if(!maker._header_only)
-                {
-                    auto libdir = compute_path(_options.root_directory, "lib");
-                    fs::create_directories(libdir);
-                    maker.export_binary(libdir);
-                }
-                auto includedir = compute_path(_options.root_directory, "include");
-                fs::create_directories(includedir);
-                maker.export_header_files(includedir);
-                library_added = true;
-                if(!maker._header_only)
-                {
-                    _config.libraries.push_back(maker.get_name());
-                }
-                for (auto libs : maker._config.libraries)
-                {
-                    auto it = std::find(_config.libraries.begin(), _config.libraries.end(), libs.c_str());
-                    if (it == _config.libraries.end())
-                    {
-                        _config.libraries.push_back(libs);
-                    }
-                    else
-                    {
-                        std::rotate(it, it + 1, _config.libraries.end());
-                    }
-                }
-                for (auto include : maker._config.include_folder)
-                {
-                    _config.include_folder.push_back(include);
-                }
-            }
-            else
-            {
-                auto bindir = compute_path(_options.root_directory, "bin");
-                fs::create_directories(bindir);
-                maker.export_binary(bindir);
-            }
-            maker.export_dependency(*this);
-        }
-            break;
-        case Process::Result::Failed:
-            _output << term::red << "Failed" << term::reset << std::endl;
-            _output << ss.str() << std::endl;
-            return Process::Result::Failed;
-            break;
-        }
-    }
-
-    if (library_added)
-    {
-        _config.library_paths.push_back(compute_path(_options.root_directory, "lib").string());
-        _config.include_folder.push_back(compute_path(_options.root_directory, "include").string());
-    }
-    return Process::Result::Success;
-}
-
-
-BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
+BuildStatus project::compile_project_async(fs::file_time_type& last_write)
 {
     struct task
     {
@@ -467,7 +302,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
                 task_mutex.lock();
                 running++;
                 auto& t = tasks.at(i);
-                t.result = std::async(std::launch::async, &CPPMaker::compile_object, this, std::ref(*t.target_file), std::ref(t.output));
+                t.result = std::async(std::launch::async, &project::compile_object, this, std::ref(*t.target_file), std::ref(t.output));
                 task_mutex.unlock();
             }
         };
@@ -499,7 +334,7 @@ BuildStatus CPPMaker::compile_project_async(fs::file_time_type& last_write)
     return status;
 }
 
-Process::Result CPPMaker::compile_object(const file& file, std::stringstream& output)
+Process::Result project::compile_object(const file& file, std::stringstream& output)
 {
     auto object_path = get_object_path(file);
     auto dir_path = object_path.remove_filename();
@@ -542,11 +377,19 @@ Process::Result CPPMaker::compile_object(const file& file, std::stringstream& ou
         command << " " << _config.cflags;
     }
 
+    // libs cflags
+    for(auto& lib: _config.libraries)
+    {
+        for(auto& cflag: lib.config.cflags){
+            command << " " << cflag;
+        }
+    }
+
     if (_options.output_command) _output << std::endl << command.str() << std::endl;
     return Process::Run(command.str().c_str(), output);
 }
 
-bool CPPMaker::binary_requires_rebuild(fs::file_time_type last_write)
+bool project::binary_requires_rebuild(fs::file_time_type last_write)
 {
     fs::path binary_path = compute_path(_options.root_directory, _config.get_binary_path());
     if (fs::exists(binary_path))
@@ -562,7 +405,7 @@ bool CPPMaker::binary_requires_rebuild(fs::file_time_type last_write)
             auto lib_path = compute_path(_options.root_directory, path);
             for (auto lib : _config.libraries)
             {
-                fs::path full_path = fs::path(lib_path) / ("lib" + lib + LIB_EXT);
+                fs::path full_path = fs::path(lib_path) / ("lib" + lib.name + LIB_EXT);
                 if (fs::exists(full_path))
                 {
                     auto file_last_write = fs::last_write_time(full_path);
@@ -583,7 +426,7 @@ bool CPPMaker::binary_requires_rebuild(fs::file_time_type last_write)
     return true;
 }
 
-Process::Result CPPMaker::link(std::stringstream& output)
+Process::Result project::link(std::stringstream& output)
 {
     std::stringstream command;
     command << _config.compiler << " ";
@@ -608,18 +451,34 @@ Process::Result CPPMaker::link(std::stringstream& output)
     }
 
     for(auto& lib: _config.libraries){
-        command << " -l" << lib;
+
+        try{
+            auto lib_config = lib.config;
+            for(auto& cflag: lib_config.cflags){
+                command << " " << cflag;
+            }
+            for(auto& lib: lib_config.lib_flags){
+                command << " " << lib;
+            }
+        }
+        catch(const std::runtime_error& error){
+            std::cerr << term::red << error.what() << term::reset << std::endl;
+            command << " -l" << lib.name;
+        }
     }
 
-    if(_config.link_etc.length() > 0){
-        command << " " << _config.link_etc;
+    if(_config.link_etc.size() > 0){
+        for(auto& etc: _config.link_etc)
+        {
+            command << " " << etc;
+        }
     }
 
     if(_options.output_command) _output << command.str() << std::endl;
     return Process::Run(command.str().c_str(), output);
 }
 
-Process::Result CPPMaker::link_library(std::stringstream& output)
+Process::Result project::link_library(std::stringstream& output)
 {
     std::stringstream command;
     auto lib_file = compute_path(_options.root_directory, _config.get_binary_path());
@@ -643,49 +502,13 @@ Process::Result CPPMaker::link_library(std::stringstream& output)
     return Process::Run(command.str().c_str(), output);
 }
 
-std::filesystem::path CPPMaker::get_pretty_path(std::filesystem::path path)
+std::filesystem::path project::get_pretty_path(std::filesystem::path path)
 {
     auto mismatch_pair = std::mismatch(path.begin(), path.end(), _options.root_directory.begin(), _options.root_directory.end());
     return mismatch_pair.second == _options.root_directory.end() ? fs::relative(path, _options.root_directory) : path;
 }
 
-void CPPMaker::export_dependency(const CPPMaker& target)
-{
-    // export libs 
-    auto lib_dir = compute_path(_options.root_directory, "lib");
-    if (fs::exists(lib_dir))
-    {
-        auto it = fs::directory_iterator(lib_dir);
-        auto target_lib_folder = compute_path(target._options.root_directory, "lib");
-        for (decltype(it) end; it != end; ++it)
-        {
-            auto target = target_lib_folder / it->path().filename();
-            if (!fs::exists(target))
-            {
-                fs::copy(*it, target);
-            }
-        }
-    }
-
-    // export includes
-    auto inc_dir = compute_path(_options.root_directory, "include");
-    if (fs::exists(inc_dir))
-    {
-        auto inc_it = fs::directory_iterator(inc_dir);
-        auto target_include_folder = compute_path(target._options.root_directory, "include");
-        for (decltype(inc_it) end; inc_it != end; ++inc_it)
-        {
-            auto target = target_include_folder / inc_it->path().filename();
-            if (!fs::exists(target_include_folder / inc_it->path().filename()))
-            {
-                fs::copy(*inc_it, target);
-            }
-        }
-    }
-        
-}
-
-std::filesystem::path CPPMaker::get_object_path(const file& file)
+std::filesystem::path project::get_object_path(const file& file)
 {
     return _obj_root / fs::relative(file.get_file_path(), _options.root_directory).replace_extension(".o");
 }

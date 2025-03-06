@@ -1,16 +1,13 @@
+#include <functional>
 #include <iostream>
 #include <filesystem>
-#include "file.hpp"
-#include <sstream>
+#include <stdexcept>
 #include <string>
-#include "config.hpp"
-#include "args.hpp"
-#include "git.hpp"
-#include "linux/cmd.hpp"
-#include "term.hpp"
+#include <unordered_map>
+#include "programs/pkg_config.hpp"
+#include "utility/args.hpp"
 #include "commands.hpp"
-#include "cppmaker.hpp"
-#include "utility.hpp"
+#include "project.hpp"
 
 namespace fs = std::filesystem;
 using namespace std;
@@ -19,44 +16,57 @@ int main(int argc, char** argv)
 {
     try
     {
-        ArgReader args(argc, argv);
-        cppmaker_options options(args);
-        
-        if (args.is(0, "init"))
-        {
-            init(fs::current_path());
-            return 0;
-        }
+        std::unordered_map<std::string, std::function<int()>> commands = {
+            {"init", [&]() {
+                if(argc != 1) {
+                    std::cout << "Usage: " << argv[0] << " init" << std::endl;
+                    return 1;
+                }
+                init(fs::current_path());
+                return 0;
+            }},
+            {"install", [&]() {
+                if(argc > 3 || argc < 2) {
+                    std::cout << "Usage: " << argv[0] << " install [repository]" << std::endl;
+                    return 1;
+                }
+                std::string path;
+                std::string binary_dir = argv[0][0] == '.' ? std::filesystem::absolute(argv[0]) : argv[0];
+                if(argc == 3)
+                {
+                    path = argv[2];
+                    if(!fs::exists(path) && !path.ends_with(".git"))
+                    {
+                        path = "git@github.com:KangNansi/" + path + ".git";
+                    }
+                }
+                return install(path, binary_dir) ? 0 : 1;
+            }},
+            {"export", [&]() {
+                if(argc != 2) {
+                    std::cout << "Usage: " << argv[0] << " export" << std::endl;
+                    return 1;
+                }
+                return export_project() ? 0 : 1;
+            }},
+            {"build", [&]() {
+                ArgReader args(argc, argv);
+                build_options options(args);
+                project maker(options);
+                return maker.build() == Process::Result::Failed ? -1 : 0;
+            }},
+        };
 
-        if(std::string path; args.get("install", path))
+        std::string cmd = argc < 2 ? "build" : argv[1];
+        auto cmd_func = commands.find(cmd);
+        if(cmd_func == commands.end())
         {
-            if(!path.ends_with(".git"))
-            {
-                path = "git@github.com:KangNansi/" + path + ".git";
-            }
-            return install(path, args, options) ? 0 : 1;
+            commands.at("build")();
         }
-
-        if(args.is(0, "export"))
+        else 
         {
-            return export_project() ? 0 : 1;
+            cmd_func->second();
         }
-
-        CPPMaker maker(options);
-        if (maker.build() == Process::Result::Failed)
-        {
-            return -1;
-        }
-        
-        if (options.export_after_build)
-        {
-            maker.export_binary();
-        }
-
-        if(options.run_after_build){
-            maker.run();
-        }
-
     }
     catch (const std::filesystem::filesystem_error& error)
     {
