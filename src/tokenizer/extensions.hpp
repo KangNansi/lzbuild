@@ -98,6 +98,10 @@ namespace tokenizer
                     return false;
                 }
             }
+            if(pos + word.size() < source.size() && (isalnum(source[pos + word.size()]) || source[pos + word.size()] == '_'))
+            {
+                return false;
+            }
             return true;
         }
     };
