@@ -48,6 +48,7 @@ library_config pkg_config::get_config(std::string name)
         name = "lib" + name;
         if(run_cmd(name, cmd_type::cflags, output) == Process::Result::Failed)
         {
+            config.lib_flags.push_back("-l" + name);
             return config;
         }
     }
