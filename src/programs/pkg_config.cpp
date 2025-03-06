@@ -44,7 +44,7 @@ library_config pkg_config::get_config(std::string name)
     std::stringstream output;
     if(run_cmd(name, cmd_type::cflags, output) == Process::Result::Failed)
     {
-        output.clear();
+        output = std::stringstream();
         name = "lib" + name;
         if(run_cmd(name, cmd_type::cflags, output) == Process::Result::Failed)
         {
@@ -52,7 +52,7 @@ library_config pkg_config::get_config(std::string name)
         }
     }
     config.cflags = parse_arguments(output);
-    output.clear();
+    output = std::stringstream();
     if(run_cmd(name, cmd_type::libs, output) == Process::Result::Failed)
     {
         return config;
