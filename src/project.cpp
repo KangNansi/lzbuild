@@ -388,7 +388,7 @@ std::string project::get_object_compilation_command(const file& file)
     {
         command << "-std=" << _config.standard << " ";
     }
-    command << "-o " << get_object_path(file) << " -c " << file.get_file_path();
+    command << "-o " << std::filesystem::relative(get_object_path(file)) << " -c " << std::filesystem::relative(file.get_file_path());
 
     // includes
     for (auto& include : _config.include_folder)
@@ -533,7 +533,7 @@ std::string project::get_link_command(std::string output)
     {
         command << "ar rcs ";
     
-        command << "-o " << output;
+        command << "-o " << std::filesystem::relative(output);
         
         for (auto& f : _files)
         {
