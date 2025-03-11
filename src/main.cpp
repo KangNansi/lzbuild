@@ -1,10 +1,9 @@
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <filesystem>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include "programs/pkg_config.hpp"
 #include "utility/args.hpp"
 #include "commands.hpp"
 #include "project.hpp"
@@ -21,15 +20,15 @@ int main(int argc, char** argv)
             {"init", [&]() {
                 if(argc != 1) {
                     std::cout << "Usage: " << argv[0] << " init" << std::endl;
-                    return 1;
+                    return EXIT_FAILURE;
                 }
                 init(fs::current_path());
-                return 0;
+                return EXIT_SUCCESS;
             }},
             {"install", [&]() {
                 if(argc > 3 || argc < 2) {
                     std::cout << "Usage: " << argv[0] << " install [repository]" << std::endl;
-                    return 1;
+                    return EXIT_FAILURE;
                 }
                 std::string path;
                 std::string binary_dir = argv[0][0] == '.' ? std::filesystem::absolute(argv[0]) : argv[0];
@@ -41,20 +40,20 @@ int main(int argc, char** argv)
                         path = "git@github.com:KangNansi/" + path + ".git";
                     }
                 }
-                return install(path, binary_dir) ? 0 : 1;
+                return install(path, binary_dir) ? EXIT_SUCCESS : EXIT_FAILURE;
             }},
             {"export", [&]() {
                 if(argc != 2) {
                     std::cout << "Usage: " << argv[0] << " export" << std::endl;
-                    return 1;
+                    return EXIT_FAILURE;
                 }
-                return export_project() ? 0 : 1;
+                return export_project() ? EXIT_SUCCESS : EXIT_FAILURE;
             }},
             {"build", [&]() {
                 ArgReader args(argc, argv);
                 build_options options(args);
                 project maker(options);
-                return maker.build() == Process::Result::Failed ? -1 : 0;
+                return maker.build() == Process::Result::Failed ? EXIT_FAILURE : EXIT_SUCCESS;
             }},
             {"script", [&]() {
                 if(argc != 3) {
@@ -67,7 +66,7 @@ int main(int argc, char** argv)
                 build_options options(args);
                 project maker(options);
                 file << maker.get_build_commands();
-                return 0;
+                return EXIT_SUCCESS;
             }},
         };
 
@@ -75,11 +74,11 @@ int main(int argc, char** argv)
         auto cmd_func = commands.find(cmd);
         if(cmd_func == commands.end())
         {
-            commands.at("build")();
+            return commands.at("build")();
         }
         else 
         {
-            cmd_func->second();
+            return cmd_func->second();
         }
     }
     catch (const std::filesystem::filesystem_error& error)
@@ -92,5 +91,5 @@ int main(int argc, char** argv)
         std::cerr << error << std::endl;
     }
     
-    return 0;
+    return EXIT_FAILURE;
 }
