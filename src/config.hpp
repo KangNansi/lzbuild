@@ -27,7 +27,7 @@ struct library_dependency
 
 struct config{
     std::string name = "result";
-    std::string cflags;
+    std::vector<std::string> cflags;
     std::string compiler = "g++";
     std::string standard = "c++20";
     std::vector<std::string> include_folder;

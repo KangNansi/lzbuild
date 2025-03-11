@@ -36,6 +36,7 @@ enum class keywords
     source,
     compiler,
     standard,
+    cflags,
 };
 
 std::unordered_map<std::string, keywords> keywords_values = {
@@ -47,6 +48,7 @@ std::unordered_map<std::string, keywords> keywords_values = {
     {"source", keywords::source},
     {"compiler", keywords::compiler},
     {"standard", keywords::standard},
+    {"cflags", keywords::cflags},
 };
 std::vector<std::string> keywords_keys = ([]() {
     std::vector<string> keys(keywords_values.size());
@@ -143,6 +145,10 @@ void read_config(config& config, std::filesystem::path path)
         {keywords::standard, [&]() {
             config.standard = read_name(ctx);
         }},
+        {keywords::cflags, [&]() {
+            auto flags = read_name_list(ctx);
+            config.cflags.insert(config.cflags.end(), flags.begin(), flags.end());
+        }}
     };
 
     while (!ctx.eof()) {

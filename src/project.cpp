@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <vector>
 #include "config.hpp"
 #include "file.hpp"
 #include "utility/cmd.hpp"
@@ -185,10 +186,12 @@ void project::build_file_registry()
 std::string project::get_build_commands()
 {
     std::stringstream ss;
+    // std::vector<std::string> source_files;
     for(auto& file: _files)
     {
         if(file.get_type() == FILE_TYPE::SOURCE)
         {
+            // source_files.push_back(fs::relative(file.get_file_path()));
             auto output_file = std::filesystem::relative(get_object_path(file));
             auto cmd = get_object_compilation_command(file);
             ss << "echo \"" << cmd << "\"" << std::endl;
@@ -196,7 +199,7 @@ std::string project::get_build_commands()
             ss << cmd << std::endl;
         }
     }
-    auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
+    auto binary_path = fs::relative(compute_path(_options.root_directory, _config.get_binary_path()));
     auto cmd = get_link_command(binary_path);
     ss << "echo \"" << cmd << "\"" << std::endl;
     ss << "mkdir -p " << std::filesystem::relative(binary_path) << std::endl;
@@ -400,9 +403,9 @@ std::string project::get_object_compilation_command(const file& file)
     }
 
     // cflags
-    if (_config.cflags.length() > 0)
+    for(auto& flag : _config.cflags)
     {
-        command << " " << _config.cflags;
+        command << " " << flag;
     }
 
     // libs cflags
