@@ -189,14 +189,17 @@ std::string project::get_build_commands()
     {
         if(file.get_type() == FILE_TYPE::SOURCE)
         {
+            auto output_file = std::filesystem::relative(get_object_path(file));
             auto cmd = get_object_compilation_command(file);
             ss << "echo \"" << cmd << "\"" << std::endl;
+            ss << "mkdir -p " << output_file.remove_filename() << std::endl;
             ss << cmd << std::endl;
         }
     }
     auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
     auto cmd = get_link_command(binary_path);
     ss << "echo \"" << cmd << "\"" << std::endl;
+    ss << "mkdir -p " << std::filesystem::relative(binary_path) << std::endl;
     ss << cmd << std::endl;
     return ss.str();
 }
