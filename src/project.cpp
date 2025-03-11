@@ -536,12 +536,12 @@ std::string project::get_link_command(std::string output)
     {
         command << "ar rcs ";
     
-        command << "-o " << std::filesystem::relative(output);
+        command << "-o " << fs::relative(output);
         
         for (auto& f : _files)
         {
             if(f.get_type() == FILE_TYPE::SOURCE){
-                command << " " << get_object_path(f);
+                command << " " << fs::relative(get_object_path(f));
             }
         }
     }
@@ -555,10 +555,10 @@ std::string project::get_link_command(std::string output)
         command << "-std=" << _config.standard << " ";
 
         auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
-        command << "-o " << binary_path;
+        command << "-o " << fs::relative(binary_path);
         for(auto& f: _files){
             if(f.get_type() == FILE_TYPE::SOURCE){
-                command << " " << get_object_path(f);
+                command << " " << fs::relative(get_object_path(f));
             }
         }
 
