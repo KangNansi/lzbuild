@@ -1,2 +1,3 @@
 name lzbuild
 output binary
+link_etc "-pthread"
