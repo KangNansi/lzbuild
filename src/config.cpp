@@ -37,6 +37,7 @@ enum class keywords
     compiler,
     standard,
     cflags,
+    macro
 };
 
 std::unordered_map<std::string, keywords> keywords_values = {
@@ -49,6 +50,7 @@ std::unordered_map<std::string, keywords> keywords_values = {
     {"compiler", keywords::compiler},
     {"standard", keywords::standard},
     {"cflags", keywords::cflags},
+    {"macro", keywords::macro},
 };
 std::vector<std::string> keywords_keys = ([]() {
     std::vector<string> keys(keywords_values.size());
@@ -148,7 +150,11 @@ void read_config(config& config, std::filesystem::path path)
         {keywords::cflags, [&]() {
             auto flags = read_name_list(ctx);
             config.cflags.insert(config.cflags.end(), flags.begin(), flags.end());
-        }}
+        }},
+        {keywords::macro, [&]() {
+            auto macros = read_name_list(ctx);
+            config.macros.insert(config.macros.end(), macros.begin(), macros.end());
+        }},
     };
 
     while (!ctx.eof()) {

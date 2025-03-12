@@ -36,6 +36,7 @@ struct config{
     std::vector<std::string> source_folders;
     std::vector<std::string> exclude;
     std::vector<std::string> link_etc;
+    std::vector<std::string> macros;
     bool is_library = false;
     size_t num_thread = 32;
 

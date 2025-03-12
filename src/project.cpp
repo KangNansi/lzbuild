@@ -415,6 +415,12 @@ std::string project::get_object_compilation_command(const file& file)
             command << " " << cflag;
         }
     }
+
+    // macros
+    for(auto& macro: _config.macros)
+    {
+        command << " -D " << macro;
+    }
     return command.str();
 }
 
