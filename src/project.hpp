@@ -51,6 +51,7 @@ public:
 
     Process::Result build();
     void export_binary(std::filesystem::path target);
+    void export_asset_folder(std::filesystem::path target);
     std::string get_name() { return _config.name; }
     bool is_library() { return _config.is_library; }
     bool is_header_only() { return _header_only; }

@@ -78,6 +78,7 @@ bool export_project()
         build_options sub_options;
         project maker(sub_options);
         maker.build_file_registry();
+        
         if(maker.is_library())
         {
             maker.export_header_files("/usr/local/include");
@@ -91,6 +92,7 @@ bool export_project()
         {
             maker.export_binary("/usr/local/bin");
         }
+        maker.export_asset_folder(fs::path("/usr/local/share") / maker.get_name());
         return true;
     }
     catch(std::filesystem::filesystem_error& error)

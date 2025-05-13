@@ -388,7 +388,7 @@ std::string project::get_object_compilation_command(const file& file)
     command << compiler << " ";
     if(_options.debug) command << "-g ";
     command << "-Wfatal-errors ";
-    command << "-Wall -Wextra ";
+    command << "-Wall ";
     command << "-fdiagnostics-color=always ";
     if (compiler.compare("gcc") != 0)
     {
@@ -606,4 +606,14 @@ std::filesystem::path project::get_pretty_path(std::filesystem::path path)
 std::filesystem::path project::get_object_path(const file& file)
 {
     return _obj_root / fs::relative(file.get_file_path(), _options.root_directory).replace_extension(".o");
+}
+
+void project::export_asset_folder(std::filesystem::path path)
+{
+    if(_config.asset_folder.has_value())
+    {
+        auto asset_folder = fs::canonical(_config.asset_folder.value());
+        fs::copy(asset_folder, path, fs::copy_options::overwrite_existing | fs::copy_options::recursive);
+        _output << term::green << "Exported " << asset_folder << " to " << path << term::green << std::endl;
+    }
 }

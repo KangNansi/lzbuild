@@ -18,7 +18,7 @@ int main(int argc, char** argv)
     {
         std::unordered_map<std::string, std::function<int()>> commands = {
             {"init", [&]() {
-                if(argc != 1) {
+                if(argc != 2) {
                     std::cout << "Usage: " << argv[0] << " init" << std::endl;
                     return EXIT_FAILURE;
                 }

@@ -1,3 +1,4 @@
 name test
 output library
 lib drm
+asset_folder design

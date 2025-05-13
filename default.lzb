@@ -1,3 +1,4 @@
 name lzbuild
 output binary
 link_etc "-pthread"
+asset_folder "design"
