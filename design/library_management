@@ -1,3 +1,0 @@
-Handle two types of library linking: static and shared
-requires to modify the config parsing system, improve it to simplify the setup, also add a vscode plugin
-handle pkg-config and dependency calculation

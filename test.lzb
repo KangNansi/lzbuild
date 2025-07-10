@@ -1,4 +1,4 @@
 name test
 output library
-lib drm
+lib drm tokenizer
 asset_folder design

@@ -8,6 +8,7 @@
 #include "commands.hpp"
 #include "project.hpp"
 #include <fstream>
+#include <lzstd/global.hpp>
 
 namespace fs = std::filesystem;
 using namespace std;

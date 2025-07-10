@@ -150,6 +150,14 @@ void project::build_file_registry()
     {
         ctx.include_folders.push_back(include_folder);
     }
+    if(std::filesystem::exists("/usr/include"))
+    {
+        ctx.include_folders.push_back("usr/include");
+    }
+    if(std::filesystem::exists("/usr/local/include"))
+    {
+        ctx.include_folders.push_back("/usr/local/include");
+    }
     for (auto& src_folder : _config.source_folders)
     {
         auto root_folder = compute_path(_options.root_directory, src_folder);
