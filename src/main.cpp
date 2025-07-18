@@ -68,6 +68,20 @@ int main(int argc, char** argv)
                 file << maker.get_build_commands();
                 return EXIT_SUCCESS;
             }},
+            {"compile_commands", [&]() {
+                ArgReader args(argc, argv);
+                build_options options(args);
+                project maker(options);
+                auto target_folder = options.root_directory;
+                if (argc > 2) {
+                  target_folder = argv[2];
+                    if (!std::filesystem::exists(target_folder)) {
+                        std::cerr << "Directory " << target_folder << " does not exist." << std::endl;
+                    }
+                }
+                maker.generate_compile_commands(target_folder);
+                return EXIT_SUCCESS;
+            }}
         };
 
         std::string cmd = argc < 2 ? "build" : argv[1];

@@ -1,6 +1,7 @@
 #include "project.hpp"
 #include <filesystem>
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <queue>
 #include <future>
@@ -15,6 +16,7 @@
 #include "utility/term.hpp"
 #include "programs/git.hpp"
 #include "env.hpp"
+
 
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
@@ -411,6 +413,9 @@ std::string project::get_object_compilation_command(const file& file)
     {
         command << " -I" << include;
     }
+#ifdef _WIN32
+    command << " -I" << INCLUDE_EXPORT_PATH;
+#endif
 
     // cflags
     for(auto& flag : _config.cflags)
@@ -494,6 +499,9 @@ Process::Result project::link(std::stringstream& output)
         auto path = compute_path(_options.root_directory, libpath);
         command << " -L" << path;
     }
+#ifdef _WIN32
+    command << " -L" << LIBRARY_EXPORT_PATH;
+#endif
 
     for(auto& lib: _config.libraries){
 
@@ -626,4 +634,51 @@ void project::export_asset_folder(std::filesystem::path path)
         fs::copy(asset_folder, path, fs::copy_options::overwrite_existing | fs::copy_options::recursive);
         _output << term::green << "Exported " << asset_folder << " to " << path << term::green << std::endl;
     }
+}
+
+void project::generate_compile_commands(std::filesystem::path folder)
+{
+    std::ofstream output((folder / "compile_commands.json").string());
+    auto sanitize_str = [](std::string& str) -> std::string&
+    {
+        size_t start_pos = 0;
+        while ((start_pos = str.find('"', start_pos)) != std::string::npos)
+        {
+            str.insert(start_pos, 1, '\\');
+            start_pos += 2;
+        }
+        return str;
+    };
+
+    output << "[\n";
+
+    std::vector<size_t> object_files;
+    for (size_t i = 0; i < _files.size(); i++)
+    {
+        if (_files[i].get_type() == FILE_TYPE::SOURCE)
+        {
+            object_files.push_back(i);
+        }
+    }
+
+    for (size_t i = 0; i < object_files.size(); i++)
+    {
+        auto& file = _files[object_files[i]];
+        output << "\t{\n";
+        auto cmd = get_object_compilation_command(file);
+        
+        output << "\t\t\"command\": \"" << sanitize_str(cmd) << "\",\n";
+        output << "\t\t\"directory\": " << _options.root_directory << ",\n";
+        output << "\t\t\"file\": " << file.get_file_path() << ",\n";
+        output << "\t\t\"output\": " << get_object_path(file) << "\n";
+        output << "\t}";
+        if (i < object_files.size() - 1)
+        {
+            output << ",";
+        }
+        output << "\n";
+    }
+    output << "]\n";
+    
+
 }

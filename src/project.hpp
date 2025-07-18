@@ -58,6 +58,7 @@ public:
     void export_header_files(std::filesystem::path target);
     void build_file_registry();
     std::string get_build_commands();
+    void generate_compile_commands(std::filesystem::path folder);
 
 private:
     BuildStatus compile_project_async(fs::file_time_type& last_write);
