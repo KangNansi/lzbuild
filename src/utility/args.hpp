@@ -15,7 +15,7 @@ class ArgReader{
     ArgReader(int argc, char** argv) {
         if(argv[0][0] == '.')
         {
-            binary_dir = std::filesystem::absolute(argv[0]);
+            binary_dir = std::filesystem::absolute(argv[0]).string();
         }
         else
         {

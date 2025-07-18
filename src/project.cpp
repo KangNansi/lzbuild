@@ -14,6 +14,7 @@
 #include "utility/cmd.hpp"
 #include "utility/term.hpp"
 #include "programs/git.hpp"
+#include "env.hpp"
 
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
@@ -96,7 +97,7 @@ Process::Result project::build()
     _output << "Creating " << (is_library() ? "library" : "executable") << "..." << std::endl;
     
     auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
-    auto cmd = get_link_command(binary_path);
+    auto cmd = get_link_command(binary_path.string());
     
     if(_options.output_command) _output << cmd << std::endl;
     std::stringstream output;
@@ -150,13 +151,14 @@ void project::build_file_registry()
     {
         ctx.include_folders.push_back(include_folder);
     }
-    if(std::filesystem::exists("/usr/include"))
+    // TODO: fix for windows
+    if (std::filesystem::exists("/usr/include"))
     {
         ctx.include_folders.push_back("usr/include");
     }
-    if(std::filesystem::exists("/usr/local/include"))
+    if(std::filesystem::exists(INCLUDE_EXPORT_PATH))
     {
-        ctx.include_folders.push_back("/usr/local/include");
+        ctx.include_folders.push_back(INCLUDE_EXPORT_PATH);
     }
     for (auto& src_folder : _config.source_folders)
     {
@@ -208,7 +210,7 @@ std::string project::get_build_commands()
         }
     }
     auto binary_path = fs::relative(compute_path(_options.root_directory, _config.get_binary_path()));
-    auto cmd = get_link_command(binary_path);
+    auto cmd = get_link_command(binary_path.string());
     ss << "echo \"" << cmd << "\"" << std::endl;
     ss << "mkdir -p " << std::filesystem::relative(binary_path) << std::endl;
     ss << cmd << std::endl;

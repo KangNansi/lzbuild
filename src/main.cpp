@@ -8,7 +8,6 @@
 #include "commands.hpp"
 #include "project.hpp"
 #include <fstream>
-#include <lzstd/global.hpp>
 
 namespace fs = std::filesystem;
 using namespace std;
@@ -32,7 +31,7 @@ int main(int argc, char** argv)
                     return EXIT_FAILURE;
                 }
                 std::string path;
-                std::string binary_dir = argv[0][0] == '.' ? std::filesystem::absolute(argv[0]) : argv[0];
+                std::string binary_dir = argv[0][0] == '.' ? std::filesystem::absolute(argv[0]).string() : argv[0];
                 if(argc == 3)
                 {
                     path = argv[2];

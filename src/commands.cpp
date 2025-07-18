@@ -5,10 +5,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include "env.hpp"
 
 namespace fs = std::filesystem;
-
-const fs::path APP_DATA = std::string(std::getenv("HOME")) + "/.lzbuild";
 
 void init(std::filesystem::path path) {
     fs::create_directory(path / "src");
@@ -22,7 +21,7 @@ bool install(std::filesystem::path repository, std::filesystem::path self_cmd)
     if(repository.extension() == ".git")
     {
         auto data_dir = APP_DATA / "cache";
-        std::string repo_name = fs::path(repository).stem();
+        std::string repo_name = fs::path(repository).stem().string();
         data_dir /= repo_name;
         if(fs::exists(data_dir) && fs::exists(data_dir / ".git"))
         {
@@ -37,7 +36,7 @@ bool install(std::filesystem::path repository, std::filesystem::path self_cmd)
         {
             std::cout << term::cyan << "Cloning repository..." << term::reset << std::endl;
             fs::create_directories(data_dir);
-            if(auto result = git_clone(data_dir, repository, std::cout); result == Process::Result::Failed)
+            if(auto result = git_clone(data_dir, repository.string(), std::cout); result == Process::Result::Failed)
             {
                 std::cerr << term::red << "Failed to clone repository: " << term::reset << repository << std::endl;
                 return false;
@@ -59,8 +58,11 @@ bool install(std::filesystem::path repository, std::filesystem::path self_cmd)
         return false;
     }
 
-    std::string cmd = "sudo ";
-    cmd += self_cmd;
+    std::string cmd;
+#ifdef __linux__
+    cmd += "sudo ";
+#endif
+    cmd += self_cmd.string();
     cmd += " export";
     if(auto result = Process::Run(cmd.c_str()); result == Process::Result::Failed)
     {
@@ -81,18 +83,18 @@ bool export_project()
         
         if(maker.is_library())
         {
-            maker.export_header_files("/usr/local/include");
+            maker.export_header_files(INCLUDE_EXPORT_PATH);
             if(!maker.is_header_only())
             {
-                maker.export_binary("/usr/local/lib");
+                maker.export_binary(LIBRARY_EXPORT_PATH);
             }
             // TODO: create pkg-config file into /usr/local/lib/pkgconfig
         }
         else
         {
-            maker.export_binary("/usr/local/bin");
+            maker.export_binary(BINARY_EXPORT_PATH);
         }
-        maker.export_asset_folder(fs::path("/usr/local/share") / maker.get_name());
+        maker.export_asset_folder(ASSET_EXPORT_PATH / maker.get_name());
         return true;
     }
     catch(std::filesystem::filesystem_error& error)

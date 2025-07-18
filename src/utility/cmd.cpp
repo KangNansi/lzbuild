@@ -8,6 +8,7 @@
 #include <string>
 #include <string.h>
 #elif _WIN32
+#include <iostream>
 #include "windows.h"
 #endif
 
@@ -112,7 +113,8 @@ Process::Result Process::Run(const char* cmd, std::ostream& output)
         si.hStdOutput = hPipeWrite;
         si.hStdError = hPipeWrite;
         std::string cmdStr = cmd;
-        if (!CreateProcess(NULL, &cmdStr[0], NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+        // std::wstring cmdWStr(cmdStr.begin(), cmdStr.end());
+        if (!CreateProcess(NULL, const_cast<char*>(cmdStr.c_str()), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
         {
             CloseHandle(hPipeRead);
             CloseHandle(hPipeWrite);
