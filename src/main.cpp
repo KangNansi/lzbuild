@@ -7,16 +7,42 @@
 #include "utility/args.hpp"
 #include "commands.hpp"
 #include "project.hpp"
+#include "help.hpp"
 #include <fstream>
 
 namespace fs = std::filesystem;
 using namespace std;
 
+bool ends_with(const std::string& str, const std::string& suffix) {
+    return str.size() >= suffix.size() && 
+           str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 int main(int argc, char** argv)
 {
     try
     {
+        std::string program_name = fs::path(argv[0]).filename().string();
+        
+        // Handle help flags
+        if (argc >= 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
+            if (argc >= 3) {
+                show_command_help(argv[2], program_name);
+            } else {
+                show_general_help(program_name);
+            }
+            return EXIT_SUCCESS;
+        }
+
         std::unordered_map<std::string, std::function<int()>> commands = {
+            {"help", [&]() {
+                if (argc >= 3) {
+                    show_command_help(argv[2], program_name);
+                } else {
+                    show_general_help(program_name);
+                }
+                return EXIT_SUCCESS;
+            }},
             {"init", [&]() {
                 if(argc != 2) {
                     std::cout << "Usage: " << argv[0] << " init" << std::endl;
@@ -35,7 +61,7 @@ int main(int argc, char** argv)
                 if(argc == 3)
                 {
                     path = argv[2];
-                    if(!fs::exists(path) && !path.ends_with(".git"))
+                    if(!fs::exists(path) && !ends_with(path, ".git"))
                     {
                         path = "git@github.com:KangNansi/" + path + ".git";
                     }
