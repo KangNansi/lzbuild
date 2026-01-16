@@ -6,6 +6,7 @@ namespace pkg_config
 {
     struct library_config
     {
+        bool has_pkg_config;
         std::vector<std::string> cflags;
         std::vector<std::string> lib_flags;
     };

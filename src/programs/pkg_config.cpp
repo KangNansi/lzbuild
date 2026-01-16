@@ -49,10 +49,12 @@ library_config pkg_config::get_config(std::string name)
         if(run_cmd(prefixed_name, cmd_type::cflags, output) == Process::Result::Failed)
         {
             config.lib_flags.push_back("-l" + name);
+            config.has_pkg_config = false;
             return config;
         }
         name = prefixed_name;
     }
+    config.has_pkg_config = true;
     config.cflags = parse_arguments(output);
     output = std::stringstream();
     if(run_cmd(name, cmd_type::libs, output) == Process::Result::Failed)

@@ -39,6 +39,7 @@ struct config{
     std::vector<std::string> link_etc;
     std::vector<std::string> macros;
     std::optional<std::string> asset_folder;
+
     bool is_library = false;
     size_t num_thread = 32;
 

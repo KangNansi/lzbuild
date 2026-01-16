@@ -59,6 +59,7 @@ public:
     void build_file_registry();
     std::string get_build_commands();
     void generate_compile_commands(std::filesystem::path folder);
+    void generate_pkg_config(std::filesystem::path folder);
 
 private:
     BuildStatus compile_project_async(fs::file_time_type& last_write);

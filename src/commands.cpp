@@ -88,7 +88,9 @@ bool export_project()
             {
                 maker.export_binary(LIBRARY_EXPORT_PATH);
             }
-            // TODO: create pkg-config file into /usr/local/lib/pkgconfig
+#ifdef __linux__
+            maker.generate_pkg_config("/usr/local/lib/pkgconfig");
+#endif
         }
         else
         {

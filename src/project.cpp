@@ -682,3 +682,50 @@ void project::generate_compile_commands(std::filesystem::path folder)
     
 
 }
+
+void project::generate_pkg_config(std::filesystem::path folder)
+{
+    std::filesystem::path file_path = folder / (_config.name + ".pc");
+    std::ofstream file(file_path);
+    if(!file) {
+        _output << term::red << "Failed to write pkg-config configuration at " << file_path << term::reset << std::endl;
+        return;
+    }
+    file << "prefix=/usr/local" << std::endl;
+    file << "includedir=${prefix}/include" << std::endl;
+    file << "libdir=${prefix}/lib" << std::endl;
+    file << std::endl;
+    file << "Name: " << _config.name << std::endl;
+    file << "Description: " << _config.name << std::endl; // TODO: description is mandatory, add a config for that later
+    file << "Version: 1.0" << std::endl;
+    file << "Requires.private: ";
+    bool add_delim = false;
+    for(size_t i = 0; i < _config.libraries.size(); i++)
+    {
+        if(_config.libraries[i].config.has_pkg_config)
+        {
+            if(add_delim)
+            {
+                file << ", ";
+            }
+            file << _config.libraries[i].name;
+            add_delim = true;
+        }
+    }
+    file << std::endl;
+    file << "Libs: -L${libdir} -l" << _config.name;
+    for(auto& lib: _config.libraries)
+    {
+        // if(!lib.config.has_pkg_config)
+        {
+            for(auto& libflag: lib.config.lib_flags)
+            {
+                file << " " << libflag;
+            }
+        }
+    }
+    file << std::endl;
+    file << "Cflags: -I${includedir}" << std::endl;
+
+    _output << term::green << "Generated pkg-config file at " << file_path << term::green << std::endl;
+}
