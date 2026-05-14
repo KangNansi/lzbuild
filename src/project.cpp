@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
-#include <queue>
+#include <ostream>
 #include <future>
 #include <chrono>
 #include <sstream>
@@ -14,7 +14,6 @@
 #include "file.hpp"
 #include "utility/cmd.hpp"
 #include "utility/term.hpp"
-#include "programs/git.hpp"
 #include "env.hpp"
 
 
@@ -26,6 +25,11 @@ fs::path compute_path(fs::path root, fs::path target)
     return target.is_absolute() ? target : root / target;
 }
 
+const char* set_color(const char* str, bool enable)
+{
+	return enable ? str : "";
+}
+
 build_options::build_options(const ArgReader& args)
 {
     verbose = args.has("-v");
@@ -35,6 +39,7 @@ build_options::build_options(const ArgReader& args)
     output_command = args.has("--output-command");
     show_warning = args.has("--show-warning") || args.has("-sw");
     print_dependencies = args.has("--print-dependencies");
+		color_output = !args.has("--no-color");
     std::string arg_value;
     if (args.get("-c", arg_value))
     {
@@ -57,7 +62,7 @@ project::project(const ArgReader& args) : _options(args)
     build_file_registry();
 }
 
-project::project(const build_options& options, std::ostream& output) : _options(options), _output(output)
+project::project(const build_options& options, std::ostream& output, std::ostream& err) : _options(options), _output(output), _err(err)
 {
     read_config(_config, compute_path(_options.root_directory, _options.config));
     _obj_root = _options.root_directory / "obj" / fs::path(_options.config).stem();
@@ -86,7 +91,7 @@ Process::Result project::build()
 
     if (status == BuildStatus::Failed)
     {
-        _output << term::red << "Build failed" << term::reset << std::endl;
+        _output << set_color(term::red, _options.color_output) << "Build failed" << set_color(term::reset, _options.color_output) << std::endl;
         return Process::Result::Failed;
     }
 
@@ -100,12 +105,16 @@ Process::Result project::build()
     
     auto binary_path = compute_path(_options.root_directory, _config.get_binary_path());
     auto cmd = get_link_command(binary_path.string());
-    
+    if(fs::exists(binary_path))
+    {
+        fs::remove(binary_path);
+    }
+
     if(_options.output_command) _output << cmd << std::endl;
     std::stringstream output;
     if(Process::Run(cmd.c_str(), output) == Process::Result::Failed)
     {
-        std::cerr << term::red << "Error creating binary" << term::reset << std::endl;
+        std::cerr << set_color(term::red, _options.color_output) << "Error creating binary" << set_color(term::reset, _options.color_output) << std::endl;
         _output << output.str() << std::flush;
         return Process::Result::Failed;
     }
@@ -128,11 +137,11 @@ void project::export_binary(std::filesystem::path target)
             fs::remove(executable);
         }
         fs::copy(binary_path, executable);
-        _output << term::green << "Exported " << binary_path << " to " << executable << term::green << std::endl;
+        _output << set_color(term::green, _options.color_output) << "Exported " << binary_path << " to " << executable << set_color(term::green, _options.color_output) << std::endl;
     }
     catch (fs::filesystem_error& error)
     {
-        std::cerr << term::red << "Could not export executable: " << error.what() << term::reset << std::endl;
+        std::cerr << set_color(term::red, _options.color_output) << "Could not export executable: " << error.what() << set_color(term::reset, _options.color_output) << std::endl;
     }
 }
 
@@ -239,7 +248,7 @@ void project::export_header_files(std::filesystem::path target)
             }
             fs::create_directories(dest_path.parent_path());
             fs::copy(file.get_file_path(), dest_path);
-            _output << term::green << "Exported " << file.get_file_path() << " to " << dest_path << term::reset << std::endl;
+            _output << set_color(term::green, _options.color_output) << "Exported " << file.get_file_path() << " to " << dest_path << set_color(term::reset, _options.color_output) << std::endl;
         }
     }
 }
@@ -276,7 +285,7 @@ BuildStatus project::compile_project_async(fs::file_time_type& last_write)
             }
             else if (_options.verbose)
             {
-                _output << term::blue << "Skipped " << f.get_file_path() << term::reset << std::endl;
+                _output << set_color(term::blue, _options.color_output) << "Skipped " << f.get_file_path() << set_color(term::reset, _options.color_output) << std::endl;
             }
         }
     }
@@ -300,17 +309,17 @@ BuildStatus project::compile_project_async(fs::file_time_type& last_write)
                         task_mutex.unlock();
                         finished_task++;
                         t.finished = true;
-                        _output << term::cyan << "Rebuilding " << t.target_file->get_file_path() << ": " << term::reset << std::flush;
+                        _output << set_color(term::cyan, _options.color_output) << "Rebuilding " << t.target_file->get_file_path() << ": " << set_color(term::reset, _options.color_output) << std::flush;
                         auto result = t.result.get();
                         t.status = result;
                         if (result == Process::Result::Failed)
                         {
                             status = BuildStatus::Failed;
-                            _output << term::red << "Failed " << term::reset << std::endl;
+                            _output << set_color(term::red, _options.color_output) << "Failed " << set_color(term::reset, _options.color_output) << std::endl;
                         }
                         else
                         {
-                            _output << term::green << "Rebuilt" << term::reset << std::endl;
+                            _output << set_color(term::green, _options.color_output) << "Rebuilt" << set_color(term::reset, _options.color_output) << std::endl;
                         }
                         auto target_obj_file = get_object_path(*t.target_file);
                         if (fs::exists(target_obj_file))
@@ -352,16 +361,16 @@ BuildStatus project::compile_project_async(fs::file_time_type& last_write)
     {
         if (t.status == Process::Result::Failed)
         {
-            _output << term::red << t.target_file->get_file_path() << " Failed:" << term::reset << std::endl;
-            _output << t.output.str() << std::endl;
+            _output << set_color(term::red, _options.color_output) << t.target_file->get_file_path() << " Failed:" << set_color(term::reset, _options.color_output) << std::endl;
+            _err << t.output.str() << std::endl;
         }
         else if (_options.show_warning)
         {
             auto output = t.output.str();
             if (output.size() > 0)
             {
-                _output << term::yellow << t.target_file->get_file_path() << " has warning:" << term::reset << std::endl;
-                _output << output << std::endl;
+								_output << set_color(term::yellow, _options.color_output) << t.target_file->get_file_path() << " has warning:" << set_color(term::reset, _options.color_output) << std::endl;
+                _err << output << std::endl;
             }
         }
     }
@@ -401,8 +410,10 @@ std::string project::get_object_compilation_command(const file& file)
     if(_options.debug) command << "-g ";
     command << "-Wfatal-errors ";
     command << "-Wall ";
-    command << "-fdiagnostics-color=always ";
-    if (compiler.compare("gcc") != 0)
+
+    if (_options.color_output) command << "-fdiagnostics-color=always ";
+    
+		if (compiler.compare("gcc") != 0)
     {
         command << "-std=" << _config.standard << " ";
     }
@@ -515,7 +526,7 @@ Process::Result project::link(std::stringstream& output)
             }
         }
         catch(const std::runtime_error& error){
-            std::cerr << term::red << error.what() << term::reset << std::endl;
+            std::cerr << set_color(term::red, _options.color_output) << error.what() << set_color(term::reset, _options.color_output) << std::endl;
             command << " -l" << lib.name;
         }
     }
@@ -632,7 +643,7 @@ void project::export_asset_folder(std::filesystem::path path)
     {
         auto asset_folder = fs::canonical(_config.asset_folder.value());
         fs::copy(asset_folder, path, fs::copy_options::overwrite_existing | fs::copy_options::recursive);
-        _output << term::green << "Exported " << asset_folder << " to " << path << term::green << std::endl;
+        _output << set_color(term::green, _options.color_output) << "Exported " << asset_folder << " to " << path << set_color(term::green, _options.color_output) << std::endl;
     }
 }
 
@@ -688,7 +699,7 @@ void project::generate_pkg_config(std::filesystem::path folder)
     std::filesystem::path file_path = folder / (_config.name + ".pc");
     std::ofstream file(file_path);
     if(!file) {
-        _output << term::red << "Failed to write pkg-config configuration at " << file_path << term::reset << std::endl;
+        _output << set_color(term::red, _options.color_output) << "Failed to write pkg-config configuration at " << file_path << set_color(term::reset, _options.color_output) << std::endl;
         return;
     }
     file << "prefix=/usr/local" << std::endl;
@@ -727,5 +738,5 @@ void project::generate_pkg_config(std::filesystem::path folder)
     file << std::endl;
     file << "Cflags: -I${includedir}" << std::endl;
 
-    _output << term::green << "Generated pkg-config file at " << file_path << term::green << std::endl;
+    _output << set_color(term::green, _options.color_output) << "Generated pkg-config file at " << file_path << set_color(term::green, _options.color_output) << std::endl;
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include <filesystem>
+#include <ostream>
 #include <vector>
 #include <sstream>
 #include <iostream>
@@ -19,6 +20,7 @@ struct build_options
     bool output_command = false;
     bool show_warning = false;
     bool print_dependencies = false;
+		bool color_output = true;
     std::string config = "default.lzb";
     std::filesystem::path root_directory = std::filesystem::current_path();
     std::optional<std::filesystem::path> export_directory;
@@ -42,12 +44,13 @@ private:
     std::vector<file> _files;
     bool _header_only = true;
     std::ostream& _output = std::cout;
+		std::ostream& _err = std::cerr;
     dependency_tree _dep_tree;
     std::filesystem::path _obj_root;
 
 public:
     project(const ArgReader& args);
-    project(const build_options& options, std::ostream& output = std::cout);
+    project(const build_options& options, std::ostream& output = std::cout, std::ostream& err = std::cerr);
 
     Process::Result build();
     void export_binary(std::filesystem::path target);
